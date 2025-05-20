@@ -7,8 +7,9 @@ export interface ClothingItem {
   color: string;
   season: string; // e.g., 'Summer', 'Winter', 'All year'
   fabric: string; // e.g., 'Cotton', 'Wool', 'Polyester'
-  imageUrl: string;
+  imageUrl: string; // Can be data URI or placeholder URL
   createdAt: Date;
+  updatedAt?: Date; 
 }
 
 export interface Outfit {
@@ -17,9 +18,15 @@ export interface Outfit {
   name: string;
   description?: string;
   itemIds: string[]; // Array of ClothingItem IDs
-  occasion?: string; // For AI generated outfits or manual tagging
   createdAt: Date;
+  updatedAt?: Date;
 }
+
+// Used for displaying outfits with their full item details
+export interface OutfitWithItems extends Outfit {
+  items: ClothingItem[];
+}
+
 
 export interface WardrobeItemForAI {
   imageUrl: string;
