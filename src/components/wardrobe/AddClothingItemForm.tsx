@@ -8,7 +8,8 @@ import { useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// Firebase Storage imports REMOVED
+// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { db, storage } from "@/lib/firebase";
+import { db } /* Firebase storage import REMOVED , storage */ from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { autocompleteClothingDetails } from "@/ai/flows/autocomplete-clothing-details";
@@ -54,12 +55,14 @@ interface AddClothingItemFormProps {
   setOpen?: (open: boolean) => void; // For closing a dialog/modal
 }
 
+const PLACEHOLDER_IMAGE_URL = "https://placehold.co/300x300.png?text=Prenda";
+
 export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl]   = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // Renamed from isUploading
   const [isAutocompleting, setIsAutocompleting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -129,16 +132,21 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para añadir prendas. Por favor, revisa tu sesión.", variant: "destructive", duration: 9000 });
       return;
     }
-    if (!selectedImage) {
-      toast({ title: "Imagen no seleccionada", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive", duration: 9000 });
-      return;
-    }
+    // No longer require selectedImage for saving, as we'll use a placeholder if no image is "linked"
+    // if (!selectedImage) {
+    //   toast({ title: "Imagen no seleccionada", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive", duration: 9000 });
+    //   return;
+    // }
 
-    setIsUploading(true);
+    setIsSaving(true);
     try {
-      const storageRef = ref(storage, `clothing_images/${user.uid}/${Date.now()}_${selectedImage.name}`);
-      const snapshot = await uploadBytes(storageRef, selectedImage);
-      const imageUrl = await getDownloadURL(snapshot.ref);
+      // Firebase Storage upload logic REMOVED
+      // const storageRef = ref(storage, `clothing_images/${user.uid}/${Date.now()}_${selectedImage.name}`);
+      // const snapshot = await uploadBytes(storageRef, selectedImage);
+      // const imageUrl = await getDownloadURL(snapshot.ref);
+      
+      // Use placeholder image URL
+      const imageUrl = PLACEHOLDER_IMAGE_URL;
 
       await addDoc(collection(db, "clothingItems"), {
         userId: user.uid,
@@ -147,11 +155,11 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         color: values.color,
         season: values.season,
         fabric: values.fabric,
-        imageUrl,
+        imageUrl, // This will be the placeholder URL
         createdAt: serverTimestamp(),
       });
 
-      toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
+      toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario (sin imagen guardada).` });
       form.reset();
       setSelectedImage(null);
       setPreviewUrl(null);
@@ -170,10 +178,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       } else if (error.message) {
         detailedErrorMessage += ` Mensaje: ${error.message}.`;
       }
-      // Attempt to provide more specific guidance based on common Firebase error codes
-      if (error.code === 'storage/unauthorized') {
-        detailedErrorMessage = "Error de permisos al subir la imagen. Asegúrate de que las reglas de Firebase Storage son correctas y estás autenticado. Revisa la consola (F12).";
-      } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
+      if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
       }
 
@@ -181,10 +186,10 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         title: "Error al Guardar Prenda", 
         description: detailedErrorMessage, 
         variant: "destructive",
-        duration: 15000 // Increased duration for user to read
+        duration: 15000
       });
     } finally {
-      setIsUploading(false);
+      setIsSaving(false);
     }
   }
 
@@ -196,7 +201,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           name="image"
           render={({ field }) => ( 
             <FormItem>
-              <FormLabel>Imagen de la Prenda</FormLabel>
+              <FormLabel>Imagen de la Prenda (solo previsualización)</FormLabel>
               <FormControl>
                 <div className="flex flex-col items-center space-y-4">
                   <label
@@ -220,14 +225,14 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                       accept="image/png, image/jpeg, image/webp"
                       className="hidden"
                       onChange={handleImageChange}
-                      disabled={isUploading || isAutocompleting}
+                      disabled={isSaving || isAutocompleting}
                     />
                   </label>
                   {previewUrl && (
                     <Button
                       type="button"
                       onClick={handleAIAutocomplete}
-                      disabled={isAutocompleting || isUploading || !selectedImage}
+                      disabled={isAutocompleting || isSaving || !selectedImage}
                       variant="outline"
                       size="sm"
                     >
@@ -241,7 +246,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                   )}
                 </div>
               </FormControl>
-              <FormMessage />
+              <FormMessage /> {/* For image validation errors like size */}
             </FormItem>
           )}
         />
@@ -253,7 +258,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
             <FormItem>
               <FormLabel>Nombre de la prenda</FormLabel>
               <FormControl>
-                <Input placeholder="Ej: Camisa de lino azul" {...field} disabled={isUploading || isAutocompleting} />
+                <Input placeholder="Ej: Camisa de lino azul" {...field} disabled={isSaving || isAutocompleting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -267,7 +272,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={isUploading || isAutocompleting}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isSaving || isAutocompleting}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona un tipo" />
@@ -291,7 +296,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
               <FormItem>
                 <FormLabel>Color</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ej: Azul marino" {...field} disabled={isUploading || isAutocompleting} />
+                  <Input placeholder="Ej: Azul marino" {...field} disabled={isSaving || isAutocompleting} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -306,7 +311,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Estación</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={isUploading || isAutocompleting}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isSaving || isAutocompleting}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona una estación" />
@@ -329,7 +334,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tejido</FormLabel>
-                 <Select onValueChange={field.onChange} value={field.value} disabled={isUploading || isAutocompleting}>
+                 <Select onValueChange={field.onChange} value={field.value} disabled={isSaving || isAutocompleting}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona un tejido" />
@@ -347,13 +352,11 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isUploading || isAutocompleting || !selectedImage || !form.formState.isValid}>
-          {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isUploading ? "Guardando prenda..." : "Añadir Prenda"}
+        <Button type="submit" className="w-full" disabled={isSaving || isAutocompleting /* removed !selectedImage validation */ || !form.formState.isValid}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSaving ? "Guardando prenda..." : "Añadir Prenda"}
         </Button>
       </form>
     </Form>
   );
 }
-
-    
