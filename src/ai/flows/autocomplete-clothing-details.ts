@@ -1,3 +1,4 @@
+
 // Autocomplete clothing details flow.
 'use server';
 
@@ -24,10 +25,10 @@ export type AutocompleteClothingDetailsInput = z.infer<
 >;
 
 const AutocompleteClothingDetailsOutputSchema = z.object({
-  type: z.string().describe('The type of clothing item (e.g., shirt, dress, pants).'),
-  color: z.string().describe('The color of the clothing item.'),
-  season: z.string().describe('The season the clothing item is best suited for (e.g., summer, winter, fall, spring).'),
-  fabric: z.string().describe('The fabric of the clothing item (e.g., cotton, silk, polyester).'),
+  type: z.string().describe('El tipo de prenda (ej. Camisa, Vestido, Pantalón).'),
+  color: z.string().describe('El color de la prenda (ej. Azul marino, Rojo).'),
+  season: z.string().describe('La temporada para la que es más adecuada la prenda (ej. Verano, Invierno, Primavera, Otoño, Para todo el año).'),
+  fabric: z.string().describe('El tejido de la prenda (ej. Algodón, Seda, Poliéster, Lino).'),
 });
 export type AutocompleteClothingDetailsOutput = z.infer<
   typeof AutocompleteClothingDetailsOutputSchema
@@ -43,16 +44,17 @@ const autocompleteClothingDetailsPrompt = ai.definePrompt({
   name: 'autocompleteClothingDetailsPrompt',
   input: {schema: AutocompleteClothingDetailsInputSchema},
   output: {schema: AutocompleteClothingDetailsOutputSchema},
-  prompt: `You are an AI assistant that analyzes images of clothing items and suggests details about them.
+  prompt: `Eres un asistente de IA experto en analizar imágenes de prendas de vestir y sugerir detalles sobre ellas.
+Tu tarea es analizar la siguiente imagen y proporcionar el tipo, color, temporada y tejido de la prenda.
+**Es crucial que proporciones todos estos cuatro campos: tipo, color, temporada y tejido. Todas tus respuestas deben ser en español.**
 
-  Analyze the following image and provide the type, color, season, and fabric of the clothing item.
+Imagen: {{media url=photoDataUri}}
 
-  Image: {{media url=photoDataUri}}
-
-  Type: The type of clothing item (e.g., shirt, dress, pants).
-  Color: The color of the clothing item.
-  Season: The season the clothing item is best suited for (e.g., summer, winter, fall, spring).
-  Fabric: The fabric of the clothing item (e.g., cotton, silk, polyester).`,
+Por favor, devuelve la información estructurada según el esquema de salida. Ejemplos de valores esperados (en español):
+- Tipo: (ej. Camisa, Vestido, Pantalón, Zapato, Chaqueta, Falda, Jersey, Accesorio)
+- Color: (ej. Azul marino, Rojo vibrante, Blanco, Negro, Beige, Estampado floral)
+- Temporada: (ej. Verano, Invierno, Otoño, Primavera, Para todo el año)
+- Tejido: (ej. Algodón, Seda, Poliéster, Lino, Lana, Denim, Cuero Sintético)`,
 });
 
 const autocompleteClothingDetailsFlow = ai.defineFlow(
@@ -66,3 +68,4 @@ const autocompleteClothingDetailsFlow = ai.defineFlow(
     return output!;
   }
 );
+
