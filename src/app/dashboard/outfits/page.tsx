@@ -139,9 +139,15 @@ export default function OutfitsPage() {
       await deleteDoc(doc(db, "outfits", outfitToDelete.id));
       toast({ title: "Atuendo Eliminado", description: `"${outfitToDelete.name}" ha sido eliminado.` });
       setOutfitToDelete(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting outfit:", error);
-      toast({ title: "Error", description: "No se pudo eliminar el atuendo.", variant: "destructive" });
+      const errorMessage = error.code ? `Código: ${error.code}. Mensaje: ${error.message}` : error.message || "Ocurrió un error desconocido.";
+      toast({ 
+        title: "Error al Eliminar Atuendo", 
+        description: `No se pudo eliminar: ${errorMessage}. Revisa la consola (F12).`, 
+        variant: "destructive",
+        duration: 9000
+      });
     }
   };
 

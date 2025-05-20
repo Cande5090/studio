@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Eye, Loader2, Search } from "lucide-react"; // Removed ChevronDown, ChevronUp as Accordion handles it
+import { Eye, Loader2, Search } from "lucide-react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -102,11 +102,11 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
-      toast({ title: "Error", description: "Debes iniciar sesión.", variant: "destructive" });
+      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para guardar atuendos.", variant: "destructive" });
       return;
     }
     if (selectedItemIds.length === 0) {
-      toast({ title: "Error", description: "Debes seleccionar al menos una prenda.", variant: "destructive" });
+      toast({ title: "Selección requerida", description: "Debes seleccionar al menos una prenda para el atuendo.", variant: "destructive" });
       return;
     }
 
@@ -129,9 +129,15 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       }
       onOutfitSaved();
       setOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving outfit:", error);
-      toast({ title: "Error", description: "No se pudo guardar el atuendo.", variant: "destructive" });
+      const errorMessage = error.code ? `Código: ${error.code}. Mensaje: ${error.message}` : error.message || "Ocurrió un error desconocido.";
+      toast({ 
+        title: "Error al Guardar Atuendo", 
+        description: `No se pudo guardar: ${errorMessage}. Revisa la consola del navegador (F12) para más detalles y verifica tus reglas de Firestore.`, 
+        variant: "destructive",
+        duration: 15000 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -188,13 +194,15 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                         const checkboxId = `checkbox-outfit-item-${item.id}`;
                         return (
                           <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
-                            <Checkbox
-                              id={checkboxId}
-                              checked={selectedItemIds.includes(item.id)}
-                              onCheckedChange={() => handleItemSelect(item.id)}
-                              className="absolute top-2 right-2 z-10 h-5 w-5"
-                              aria-labelledby={`item-label-${item.id}`}
-                            />
+                            <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10">
+                                <Checkbox
+                                  id={checkboxId}
+                                  checked={selectedItemIds.includes(item.id)}
+                                  onCheckedChange={() => handleItemSelect(item.id)}
+                                  className="h-5 w-5"
+                                  aria-labelledby={`item-label-${item.id}`}
+                                />
+                            </label>
                             <div className="w-full aspect-[3/4] relative rounded overflow-hidden">
                                <label htmlFor={checkboxId} className="cursor-pointer block w-full h-full">
                                 <Image
@@ -246,5 +254,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
-
-    
