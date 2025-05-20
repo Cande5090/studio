@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react"; // Added useMemo
-import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot } from "firebase/firestore"; // Added onSnapshot
+import { useEffect, useState } from "react";
+import { collection, query, where, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, Sparkles } from "lucide-react"; 
 
 import { db } from "@/lib/firebase";
@@ -12,11 +12,11 @@ import type { SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
 import { SuggestOutfitForm } from "@/components/suggestions/SuggestOutfitForm";
 import { SuggestedOutfitDisplay } from "@/components/suggestions/SuggestedOutfitDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { useToast } from "@/hooks/use-toast";
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
-  const { toast } = useToast(); // Added toast
+  const { toast } = useToast();
   const [wardrobe, setWardrobe] = useState<ClothingItem[]>([]);
   const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
@@ -28,24 +28,24 @@ export default function SuggestionsPage() {
       const q = query(
         collection(db, "clothingItems"),
         where("userId", "==", user.uid),
-        orderBy("createdAt", "desc")
+        orderBy("createdAt", "desc") // Para que el form pueda priorizar recientes
       );
-      // Use onSnapshot for real-time updates if desired, or stick to getDocs for one-time fetch.
-      // For suggestions, one-time fetch is often enough unless wardrobe changes very frequently during suggestion session.
+      
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: ClothingItem[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
+          const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date();
           items.push({
             id: doc.id,
             ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
+            createdAt,
           } as ClothingItem);
         });
         setWardrobe(items);
         setIsLoadingWardrobe(false);
       }, (error) => {
-        console.error("Error fetching wardrobe for suggestions:", error);
+        console.error("Error al cargar el armario para sugerencias:", error);
         toast({
           title: "Error al Cargar Armario",
           description: "No se pudieron cargar tus prendas para las sugerencias.",
@@ -53,7 +53,7 @@ export default function SuggestionsPage() {
         });
         setIsLoadingWardrobe(false);
       });
-      return () => unsubscribe(); // Cleanup snapshot listener
+      return () => unsubscribe();
     } else {
       setWardrobe([]);
       setIsLoadingWardrobe(false);
@@ -65,7 +65,7 @@ export default function SuggestionsPage() {
       <div className="container mx-auto py-8 space-y-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-8 w-1/4" />
+        <Skeleton className="h-60 w-full" />
       </div>
     );
   }
@@ -73,14 +73,14 @@ export default function SuggestionsPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Sugerencias de Atuendos con IA</h1>
+        <h1 className="text-3xl font-bold mb-2">Sugerencias de Outfit con IA</h1>
         <p className="text-muted-foreground">
           Describe la ocasión y deja que nuestra IA te sugiera el atuendo perfecto de tu propio armario.
         </p>
       </div>
       
       <SuggestOutfitForm
-        wardrobe={wardrobe} // Pass the full wardrobe
+        wardrobe={wardrobe}
         onSuggestionReceived={setSuggestion}
         isSuggesting={isSuggesting}
         setIsSuggesting={setIsSuggesting}
@@ -95,10 +95,10 @@ export default function SuggestionsPage() {
       )}
       
       {!isSuggesting && suggestion && (
-        // Pass the full wardrobe to SuggestedOutfitDisplay
         <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} />
       )}
-       {!isSuggesting && !suggestion && wardrobe.length > 0 && !isLoadingWardrobe && (
+
+      {!isSuggesting && !suggestion && wardrobe.length > 0 && (
         <div className="mt-8 text-center p-10 border-2 border-dashed border-border rounded-lg bg-card/50">
           <Sparkles className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold">¿Listo para una sugerencia?</h2>
@@ -107,7 +107,8 @@ export default function SuggestionsPage() {
           </p>
         </div>
       )}
-       {!isSuggesting && !suggestion && wardrobe.length === 0 && !isLoadingWardrobe && (
+
+       {!isSuggesting && !suggestion && wardrobe.length === 0 && (
         <div className="mt-8 text-center p-10 border-2 border-dashed border-border rounded-lg bg-card/50">
           <Sparkles className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-xl font-semibold">Tu armario está vacío</h2>

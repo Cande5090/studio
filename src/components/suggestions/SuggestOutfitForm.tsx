@@ -4,7 +4,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-// useState removed as it's not used
 import { Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,7 @@ interface SuggestOutfitFormProps {
 }
 
 const MAX_WARDROBE_ITEMS_FOR_AI = 50; 
-const AI_SUGGESTION_TIMEOUT_MS = 90000; 
+const AI_SUGGESTION_TIMEOUT_MS = 90000; // 90 segundos
 
 export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggesting, isSuggesting }: SuggestOutfitFormProps) {
   const { toast } = useToast();
@@ -56,15 +55,16 @@ export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggest
     onSuggestionReceived(null); 
 
     try {
-      const limitedWardrobe = wardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
+      // Ordenar por fecha de creación descendente (más recientes primero) y limitar
+      const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const limitedWardrobe = sortedWardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
       
-      // Map to the WardrobeItemForAI type, which now expects an ID and no imageUrl
       const wardrobeForAI: WardrobeItemForAI[] = limitedWardrobe.map(item => ({
         id: item.id, 
         type: item.type,
         color: item.color,
         season: item.season,
-        material: item.fabric, 
+        material: item.fabric, // 'fabric' en ClothingItem se mapea a 'material' para la IA
       }));
 
       if (wardrobe.length > MAX_WARDROBE_ITEMS_FOR_AI) {
@@ -82,19 +82,21 @@ export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggest
       
       const suggestionPromise = suggestOutfit(input);
       const timeoutPromise = new Promise<SuggestOutfitOutput>((_, reject) =>
-        setTimeout(() => reject(new Error("AI suggestion timed out")), AI_SUGGESTION_TIMEOUT_MS)
+        setTimeout(() => reject(new Error("La sugerencia de la IA ha tardado demasiado.")), AI_SUGGESTION_TIMEOUT_MS)
       );
 
       const result = await Promise.race([suggestionPromise, timeoutPromise]);
       onSuggestionReceived(result);
 
     } catch (error: any) {
-      console.error("Error suggesting outfit:", error);
-      if (error.message === "AI suggestion timed out") {
-        toast({ title: "Tiempo de espera agotado", description: "La IA tardó demasiado en responder. Por favor, inténtalo de nuevo más tarde.", variant: "destructive" });
-      } else {
-        toast({ title: "Error de IA", description: "No se pudo sugerir un atuendo. Inténtalo de nuevo.", variant: "destructive" });
+      console.error("Error sugiriendo atuendo:", error);
+      let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
+      if (error.message === "La sugerencia de la IA ha tardado demasiado.") {
+        errorMessage = "La IA tardó demasiado en responder. Por favor, inténtalo de nuevo más tarde.";
+      } else if (error.message && error.message.includes("INVALID_ARGUMENT")) {
+        errorMessage = "Hubo un problema con los datos enviados o recibidos de la IA. Revisa la consola.";
       }
+      toast({ title: "Error de IA", description: errorMessage, variant: "destructive" });
       onSuggestionReceived(null);
     } finally {
       setIsSuggesting(false);

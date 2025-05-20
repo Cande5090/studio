@@ -27,11 +27,11 @@ export interface OutfitWithItems extends Outfit {
   items: ClothingItem[];
 }
 
-// Information sent to the AI for suggesting outfits - REMOVED as feature is removed
-// export interface WardrobeItemForAI {
-//   id: string; 
-//   type: string;
-//   color: string;
-//   season: string;
-//   material: string; 
-// }
+// Information sent to the AI for suggesting outfits
+export interface WardrobeItemForAI {
+  id: string; 
+  type: string;
+  color: string;
+  season: string;
+  material: string; // Corresponds to 'fabric' in ClothingItem
+}

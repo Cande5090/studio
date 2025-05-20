@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Shirt, Sparkles, Users, Settings } from "lucide-react";
+import { Home, Shirt, Sparkles, Users, Settings } from "lucide-react"; // Importado Sparkles
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -15,8 +15,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/dashboard/wardrobe", label: "Mi Armario", icon: Shirt },
-  { href: "/dashboard/outfits", label: "Mis Atuendos", icon: Users }, // Users icon as placeholder for multiple items
-  // { href: "/dashboard/suggestions", label: "Sugerencias IA", icon: Sparkles }, // Removed AI Suggestions
+  { href: "/dashboard/outfits", label: "Mis Atuendos", icon: Users }, 
+  { href: "/dashboard/suggestions", label: "Sugerencias de Outfit", icon: Sparkles }, // Nueva sección
   { href: "/dashboard/profile", label: "Perfil", icon: Settings },
 ];
 
