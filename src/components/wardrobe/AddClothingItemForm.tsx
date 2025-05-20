@@ -36,9 +36,9 @@ const clothingTypes = ["Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "J
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 const fabrics = ["Algodón", "Lana", "Seda", "Lino", "Poliéster", "Cuero", "Denim", "Otro"];
 
-const MAX_FILE_SIZE_MB = 0.7; // Reduced to 0.7MB to try and keep base64 under 1MB Firestore limit
+const MAX_FILE_SIZE_MB = 0.7; 
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS = 1000000; // Approx 1MB limit for the data URI string
+const FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS = 1000000; 
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres." }),
@@ -51,7 +51,7 @@ const formSchema = z.object({
 
 interface AddClothingItemFormProps {
   onItemAdded?: () => void;
-  setOpen?: (open: boolean) => void; // For closing a dialog/modal
+  setOpen?: (open: boolean) => void; 
 }
 
 const PLACEHOLDER_IMAGE_URL = "https://placehold.co/300x300.png?text=Prenda";
@@ -127,12 +127,23 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
     setIsAutocompleting(true);
     try {
       const result: AutocompleteClothingDetailsOutput = await autocompleteClothingDetails({ photoDataUri: previewUrl });
+      
+      let suggestedSeason = result.season || "";
+      if (!suggestedSeason || !seasons.includes(suggestedSeason)) {
+        suggestedSeason = "Todo el año";
+      }
+
       form.setValue("type", result.type || "");
       form.setValue("color", result.color || "");
-      form.setValue("season", result.season || "");
+      form.setValue("season", suggestedSeason);
       form.setValue("fabric", result.fabric || "");
-      if (!form.getValues("name") && result.type) {
-         form.setValue("name", `${result.type} ${result.color}`);
+      
+      if (!form.getValues("name")) {
+        if (result.type && result.color) {
+          form.setValue("name", `${result.type} ${result.color}`);
+        } else if (result.type) {
+          form.setValue("name", result.type);
+        }
       }
       toast({ title: "¡Autocompletado!", description: "Campos sugeridos por IA." });
     } catch (error) {
@@ -196,7 +207,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       } else if (error.message) {
         detailedErrorMessage += ` Mensaje: ${error.message}.`;
       }
-      if (error.message?.toLowerCase().includes('document exceeds maximum size')) {
+      if (error.message?.toLowerCase().includes('document exceeds maximum size') || error.message?.toLowerCase().includes('payload is too large')) {
           detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse. Intenta con una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`;
       } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
