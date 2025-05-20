@@ -18,7 +18,7 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            La IA está procesando tu solicitud o no pudo generar una sugerencia esta vez. Inténtalo de nuevo.
+            La IA está procesando tu solicitud o no pudo generar una sugerencia esta vez. Inténtalo de nuevo o con una descripción diferente.
           </p>
         </CardContent>
       </Card>
@@ -41,21 +41,28 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
       <CardContent className="space-y-6">
         {hasOutfitItems ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {suggestion.outfitSuggestion!.map((item, index) => ( // Safe to use ! due to hasOutfitItems check
-              <div key={index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
-                <div className="relative w-full aspect-square rounded-md overflow-hidden">
-                 <Image
-                    src={item.imageUrl || "https://placehold.co/200x200.png"} 
-                    alt={`${item.type} - ${item.color}`}
-                    layout="fill"
-                    objectFit="cover"
-                    data-ai-hint="clothing item"
-                  />
+            {suggestion.outfitSuggestion!.map((item, index) => {
+              const itemType = item.type || "Prenda";
+              const itemColor = item.color || "Color no especificado";
+              const altText = `${itemType} - ${itemColor}`;
+              const titleText = `${itemType} (${itemColor})`;
+
+              return (
+                <div key={index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
+                  <div className="relative w-full aspect-square rounded-md overflow-hidden">
+                   <Image
+                      src={item.imageUrl || "https://placehold.co/200x200.png?text=Prenda"} 
+                      alt={altText}
+                      layout="fill"
+                      objectFit="cover"
+                      data-ai-hint="clothing item"
+                    />
+                  </div>
+                  <p className="text-sm font-medium text-center truncate w-full" title={titleText}>{itemType}</p>
+                  {item.color && <p className="text-xs text-muted-foreground text-center">{itemColor}</p>}
                 </div>
-                <p className="text-sm font-medium text-center truncate w-full" title={`${item.type} (${item.color})`}>{item.type}</p>
-                <p className="text-xs text-muted-foreground text-center">{item.color}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -74,8 +81,12 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
             </ScrollArea>
           </div>
         )}
+        {!suggestion.reasoning && (
+           <p className="text-sm text-muted-foreground pt-4 border-t">
+            La IA no proporcionó una explicación para esta sugerencia.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
-

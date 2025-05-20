@@ -33,16 +33,16 @@ const SuggestOutfitOutputSchema = z.object({
   outfitSuggestion: z
     .array(
       z.object({
-        imageUrl: z.string().describe('URL of the clothing item image.'),
-        type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress).'),
-        color: z.string().describe('The color of the clothing item.'),
-        season: z.string().describe('The season the item is most suited for.'),
-        material: z.string().describe('The material of the clothing item.'),
+        imageUrl: z.string().describe('URL of the clothing item image.').optional(),
+        type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress).').optional(),
+        color: z.string().describe('The color of the clothing item.').optional(),
+        season: z.string().describe('The season the item is most suited for.').optional(),
+        material: z.string().describe('The material of the clothing item.').optional(),
       })
     )
     .describe('An array of clothing items suggested for the outfit.')
-    .optional(), // Made optional
-  reasoning: z.string().describe('The reasoning behind the outfit suggestion.').optional(), // Made optional
+    .optional(),
+  reasoning: z.string().describe('The reasoning behind the outfit suggestion.').optional(),
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
 
@@ -63,9 +63,13 @@ Wardrobe:
 - Type: {{type}}, Color: {{color}}, Season: {{season}}, Material: {{material}}, Image URL: {{imageUrl}}
 {{/each}}
 
-Consider the occasion and the characteristics of each clothing item in the wardrobe to create a suitable outfit. Provide the reasoning for the suggested outfit.
+Consider the occasion and the characteristics of each clothing item in the wardrobe to create a suitable outfit. 
+Provide the reasoning for the suggested outfit. Include the 'reasoning' field in your output.
+For each item in 'outfitSuggestion', ensure you include 'imageUrl', 'type', 'color', 'season', and 'material'.
 
 Output the outfit suggestion as an array of clothing items selected from the user's wardrobe and the reasoning behind the outfit suggestion.
+Return an empty array for 'outfitSuggestion' if no suitable items are found.
+Always include the 'reasoning' field, even if it's to explain why no outfit could be suggested.
 `,
 });
 
