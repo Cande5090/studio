@@ -8,8 +8,6 @@ import { useState, type ChangeEvent } from "react";
 import Image from "next/image";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-// Firebase Storage imports REMOVED
-// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { db } /* Firebase storage import REMOVED , storage */ from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { autocompleteClothingDetails } from "@/ai/flows/autocomplete-clothing-details";
@@ -38,8 +36,9 @@ const clothingTypes = ["Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "J
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 const fabrics = ["Algodón", "Lana", "Seda", "Lino", "Poliéster", "Cuero", "Denim", "Otro"];
 
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 0.7; // Reduced to 0.7MB to try and keep base64 under 1MB Firestore limit
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS = 1000000; // Approx 1MB limit for the data URI string
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres." }),
@@ -47,7 +46,7 @@ const formSchema = z.object({
   color: z.string().min(1, { message: "Por favor, introduce un color." }),
   season: z.string().min(1, { message: "Por favor, selecciona una estación." }),
   fabric: z.string().min(1, { message: "Por favor, selecciona un tejido." }),
-  image: z.instanceof(File).optional().refine(file => file ? file.size <= MAX_FILE_SIZE_BYTES : true, `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB.`),
+  image: z.instanceof(File).optional().refine(file => file ? file.size <= MAX_FILE_SIZE_BYTES : true, `La imagen es demasiado grande. El tamaño máximo es ${MAX_FILE_SIZE_MB}MB para asegurar que quepa en la base de datos.`),
 });
 
 interface AddClothingItemFormProps {
@@ -62,7 +61,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
   const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl]   = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false); // Renamed from isUploading
+  const [isSaving, setIsSaving] = useState(false);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -82,8 +81,9 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "Archivo demasiado grande",
-          description: `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB. Intenta con una imagen más pequeña.`,
+          description: `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB. Esto es para asegurar que la información de la imagen pueda guardarse correctamente. Intenta con una imagen más pequeña.`,
           variant: "destructive",
+          duration: 7000,
         });
         setSelectedImage(null);
         setPreviewUrl(null);
@@ -97,7 +97,23 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       form.setValue("image", file, { shouldValidate: true }); 
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
+        const result = reader.result as string;
+        if (result.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
+            toast({
+              title: "Imagen demasiado compleja",
+              description: `Después de procesar, la información de la imagen es demasiado grande para guardarla directamente. Intenta con una imagen más simple o de menor resolución, o una con menos detalles (menos de ${MAX_FILE_SIZE_MB}MB).`,
+              variant: "destructive",
+              duration: 9000,
+            });
+            setSelectedImage(null);
+            setPreviewUrl(null);
+            form.setValue("image", undefined);
+             if (event.target) { 
+                event.target.value = "";
+            }
+            return;
+        }
+        setPreviewUrl(result);
       };
       reader.readAsDataURL(file);
     }
@@ -132,22 +148,24 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para añadir prendas. Por favor, revisa tu sesión.", variant: "destructive", duration: 9000 });
       return;
     }
-    // No longer require selectedImage for saving, as we'll use a placeholder if no image is "linked"
-    // if (!selectedImage) {
-    //   toast({ title: "Imagen no seleccionada", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive", duration: 9000 });
-    //   return;
-    // }
+    
+    let imageUrlToSave = PLACEHOLDER_IMAGE_URL;
+    if (previewUrl) {
+      if (previewUrl.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
+        toast({
+          title: "Error al guardar: Imagen demasiado grande",
+          description: `La información de la imagen es demasiado extensa para guardarse. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB) o con menos detalles.`,
+          variant: "destructive",
+          duration: 9000,
+        });
+        setIsSaving(false);
+        return;
+      }
+      imageUrlToSave = previewUrl;
+    }
 
     setIsSaving(true);
     try {
-      // Firebase Storage upload logic REMOVED
-      // const storageRef = ref(storage, `clothing_images/${user.uid}/${Date.now()}_${selectedImage.name}`);
-      // const snapshot = await uploadBytes(storageRef, selectedImage);
-      // const imageUrl = await getDownloadURL(snapshot.ref);
-      
-      // Use placeholder image URL
-      const imageUrl = PLACEHOLDER_IMAGE_URL;
-
       await addDoc(collection(db, "clothingItems"), {
         userId: user.uid,
         name: values.name,
@@ -155,11 +173,11 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         color: values.color,
         season: values.season,
         fabric: values.fabric,
-        imageUrl, // This will be the placeholder URL
+        imageUrl: imageUrlToSave,
         createdAt: serverTimestamp(),
       });
 
-      toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario (sin imagen guardada).` });
+      toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
       form.reset();
       setSelectedImage(null);
       setPreviewUrl(null);
@@ -171,14 +189,16 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       if (setOpen) setOpen(false);
 
     } catch (error: any) {
-      console.error(" detailed error adding clothing item:", error);
+      console.error("Error detallado al añadir prenda:", error);
       let detailedErrorMessage = "No se pudo añadir la prenda. Revisa la consola del navegador para más detalles (F12).";
       if (error.code) { 
         detailedErrorMessage += ` Código de error: ${error.code}.`;
       } else if (error.message) {
         detailedErrorMessage += ` Mensaje: ${error.message}.`;
       }
-      if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
+      if (error.message?.toLowerCase().includes('document exceeds maximum size')) {
+          detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse. Intenta con una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`;
+      } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
       }
 
@@ -201,7 +221,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           name="image"
           render={({ field }) => ( 
             <FormItem>
-              <FormLabel>Imagen de la Prenda (solo previsualización)</FormLabel>
+              <FormLabel>Imagen de la Prenda (Max. ${MAX_FILE_SIZE_MB}MB)</FormLabel>
               <FormControl>
                 <div className="flex flex-col items-center space-y-4">
                   <label
@@ -246,7 +266,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                   )}
                 </div>
               </FormControl>
-              <FormMessage /> {/* For image validation errors like size */}
+              <FormMessage /> 
             </FormItem>
           )}
         />
@@ -352,10 +372,11 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSaving || isAutocompleting /* removed !selectedImage validation */ || !form.formState.isValid}>
+        <Button type="submit" className="w-full" disabled={isSaving || isAutocompleting || !form.formState.isValid}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isSaving ? "Guardando prenda..." : "Añadir Prenda"}
         </Button>
+        {!form.formState.isValid && form.formState.isSubmitted && <p className="text-sm text-destructive text-center mt-2">Revisa los campos. Hay errores o faltan datos.</p>}
       </form>
     </Form>
   );
