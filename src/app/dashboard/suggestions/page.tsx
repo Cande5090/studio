@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore"; // Added orderBy, Timestamp
 import { Loader2 } from "lucide-react";
 
 import { db } from "@/lib/firebase";
@@ -24,11 +24,21 @@ export default function SuggestionsPage() {
     async function fetchWardrobe() {
       if (user) {
         setIsLoadingWardrobe(true);
-        const q = query(collection(db, "clothingItems"), where("userId", "==", user.uid));
+        const q = query(
+          collection(db, "clothingItems"),
+          where("userId", "==", user.uid),
+          orderBy("createdAt", "desc") // Order by most recent
+        );
         const querySnapshot = await getDocs(q);
         const items: ClothingItem[] = [];
         querySnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() } as ClothingItem);
+          const data = doc.data();
+          items.push({
+            id: doc.id,
+            ...data,
+            // Ensure createdAt is a JavaScript Date object
+            createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
+          } as ClothingItem);
         });
         setWardrobe(items);
         setIsLoadingWardrobe(false);
@@ -73,6 +83,15 @@ export default function SuggestionsPage() {
       
       {!isSuggesting && suggestion && (
         <SuggestedOutfitDisplay suggestion={suggestion} />
+      )}
+       {!isSuggesting && !suggestion && wardrobe.length > 0 && !isLoadingWardrobe && (
+        <div className="mt-8 text-center p-10 border-2 border-dashed border-border rounded-lg bg-card/50">
+          <Sparkles className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold">¿Listo para una sugerencia?</h2>
+          <p className="text-muted-foreground">
+            Define la ocasión arriba y pulsa "Sugerir Atuendo".
+          </p>
+        </div>
       )}
     </div>
   );
