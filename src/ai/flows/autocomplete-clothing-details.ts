@@ -27,7 +27,7 @@ export type AutocompleteClothingDetailsInput = z.infer<
 const AutocompleteClothingDetailsOutputSchema = z.object({
   type: z.string().describe('El tipo de prenda (ej. Camisa, Vestido, Pantalón).'),
   color: z.string().describe('El color de la prenda (ej. Azul marino, Rojo).'),
-  season: z.string().describe('La temporada para la que es más adecuada la prenda (ej. Verano, Invierno, Primavera, Otoño, Para todo el año).'),
+  season: z.string().describe('La temporada o estación para la que es más adecuada la prenda (ej. Verano, Invierno, Primavera, Otoño, Para todo el año).'),
   fabric: z.string().describe('El tejido de la prenda (ej. Algodón, Seda, Poliéster, Lino).'),
 });
 export type AutocompleteClothingDetailsOutput = z.infer<
@@ -45,8 +45,8 @@ const autocompleteClothingDetailsPrompt = ai.definePrompt({
   input: {schema: AutocompleteClothingDetailsInputSchema},
   output: {schema: AutocompleteClothingDetailsOutputSchema},
   prompt: `Eres un asistente de IA experto en analizar imágenes de prendas de vestir y sugerir detalles sobre ellas.
-Tu tarea es analizar la siguiente imagen y proporcionar el tipo, color, temporada y tejido de la prenda.
-**Es crucial que proporciones todos estos cuatro campos: tipo, color, temporada y tejido. Todas tus respuestas deben ser en español.**
+Tu tarea es analizar la siguiente imagen y proporcionar el **tipo** de prenda, su **color**, la **temporada (o estación)** para la que es más adecuada, y el **tejido** principal.
+**Es crucial que proporciones valores para los cuatro campos solicitados: tipo, color, temporada (o estación), y tejido. Intenta completar todos estos campos. Todas tus respuestas deben ser en español.**
 
 Imagen: {{media url=photoDataUri}}
 
