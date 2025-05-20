@@ -3,7 +3,7 @@ import Image from "next/image";
 import type { ClothingItem } from "@/types";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tag, Palette, Snowflake, Sun, Droplets, Trash2, Pencil } from "lucide-react"; // Added Trash2, Pencil
+import { Tag, Palette, Snowflake, Sun, Droplets, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -21,7 +21,7 @@ import { useState } from "react";
 interface ClothingCardProps {
   item: ClothingItem;
   onDeleteItem: (itemId: string) => Promise<void>;
-  onEditItem: (item: ClothingItem) => void; // Placeholder for edit
+  onEditItem: (item: ClothingItem) => void;
 }
 
 export function ClothingCard({ item, onDeleteItem, onEditItem }: ClothingCardProps) {
@@ -29,7 +29,7 @@ export function ClothingCard({ item, onDeleteItem, onEditItem }: ClothingCardPro
 
   const handleDelete = async () => {
     await onDeleteItem(item.id);
-    setIsDeleteDialogOpen(false); // Close dialog after deletion
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -68,7 +68,7 @@ export function ClothingCard({ item, onDeleteItem, onEditItem }: ClothingCardPro
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-2 flex justify-end gap-2">
-        <Button variant="outline" size="icon" onClick={() => onEditItem(item)} disabled> {/* Edit button disabled for now */}
+        <Button variant="outline" size="icon" onClick={() => onEditItem(item)}>
           <Pencil className="h-4 w-4" />
           <span className="sr-only">Editar</span>
         </Button>

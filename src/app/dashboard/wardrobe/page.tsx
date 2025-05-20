@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, orderBy, doc, deleteDoc } from "firebase/firestore"; // Added doc, deleteDoc
-import { PlusCircle, Loader2 } from "lucide-react";
+import { collection, query, where, onSnapshot, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { PlusCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { db } from "@/lib/firebase";
@@ -17,13 +17,11 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { useToast } from "@/hooks/use-toast";
 
-// Placeholder Shirt icon if needed, or use one from lucide-react
 const Shirt = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("lucide lucide-shirt", className)}>
     <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>
@@ -32,10 +30,13 @@ const Shirt = ({ className }: { className?: string }) => (
 
 export default function WardrobePage() {
   const { user } = useAuth();
-  const { toast } = useToast(); // Init toast
+  const { toast } = useToast();
   const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  
+  const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
+  const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
 
   useEffect(() => {
     if (user) {
@@ -49,7 +50,6 @@ export default function WardrobePage() {
         const items: ClothingItem[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          // Ensure createdAt is converted to Date if it's a Timestamp
           const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
           items.push({ id: doc.id, ...data, createdAt } as ClothingItem);
         });
@@ -82,36 +82,49 @@ export default function WardrobePage() {
     }
   };
 
-  // Placeholder for edit functionality
-  const handleEditItem = (item: ClothingItem) => {
-    console.log("Editing item (placeholder):", item);
-    toast({ title: "Próximamente", description: "La edición de prendas estará disponible pronto." });
-    // Here you would typically open an edit dialog and pass the item data
+  const handleOpenAddDialog = () => {
+    setFormMode('add');
+    setEditingItem(null);
+    setIsFormDialogOpen(true);
   };
 
+  const handleOpenEditDialog = (item: ClothingItem) => {
+    setFormMode('edit');
+    setEditingItem(item);
+    setIsFormDialogOpen(true);
+  };
+
+  const handleItemSaved = () => {
+    // Firestore onSnapshot will update the list automatically
+    // We might want to close the dialog here if not closed by the form itself
+    // setIsFormDialogOpen(false); // The form component already calls setOpen(false)
+  };
 
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Mi Armario</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Añadir Prenda
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[625px]">
-            <DialogHeader>
-              <DialogTitle>Añadir Nueva Prenda</DialogTitle>
-              <DialogDescription>
-                Sube una foto y completa los detalles de tu prenda. Puedes usar la IA para autocompletar.
-              </DialogDescription>
-            </DialogHeader>
-            <AddClothingItemForm setOpen={setIsAddDialogOpen} onItemAdded={() => { /* Snapshot handles updates */ }} />
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleOpenAddDialog}>
+          <PlusCircle className="mr-2 h-5 w-5" />
+          Añadir Prenda
+        </Button>
       </div>
+
+      <Dialog open={isFormDialogOpen} onOpenChange={setIsFormDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>{formMode === 'edit' ? 'Editar Prenda' : 'Añadir Nueva Prenda'}</DialogTitle>
+            <DialogDescription>
+              {formMode === 'edit' ? 'Modifica los detalles de tu prenda.' : 'Sube una foto y completa los detalles de tu prenda. Puedes usar la IA para autocompletar.'}
+            </DialogDescription>
+          </DialogHeader>
+          <AddClothingItemForm 
+            setOpen={setIsFormDialogOpen} 
+            itemToEdit={formMode === 'edit' ? editingItem : undefined}
+            onItemSaved={handleItemSaved}
+          />
+        </DialogContent>
+      </Dialog>
 
       {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -128,7 +141,7 @@ export default function WardrobePage() {
           <p className="text-muted-foreground mb-6">
             Empieza añadiendo prendas para organizar tu estilo.
           </p>
-          <Button onClick={() => setIsAddDialogOpen(true)} size="lg">
+          <Button onClick={handleOpenAddDialog} size="lg">
             <PlusCircle className="mr-2 h-5 w-5" />
             Añadir mi primera prenda
           </Button>
@@ -138,7 +151,7 @@ export default function WardrobePage() {
       {!isLoading && clothingItems.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {clothingItems.map((item) => (
-            <ClothingCard key={item.id} item={item} onDeleteItem={handleDeleteItem} onEditItem={handleEditItem} />
+            <ClothingCard key={item.id} item={item} onDeleteItem={handleDeleteItem} onEditItem={handleOpenEditDialog} />
           ))}
         </div>
       )}

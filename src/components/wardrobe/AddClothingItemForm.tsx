@@ -4,10 +4,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, doc, updateDoc } from "firebase/firestore"; // Added doc, updateDoc
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { autocompleteClothingDetails } from "@/ai/flows/autocomplete-clothing-details";
 import type { AutocompleteClothingDetailsOutput } from "@/ai/flows/autocomplete-clothing-details";
+import type { ClothingItem } from "@/types";
 
 const clothingTypes = ["Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "Jersey", "Zapatos", "Accesorio", "Otro"];
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
@@ -50,17 +51,18 @@ const formSchema = z.object({
 });
 
 interface AddClothingItemFormProps {
-  onItemAdded?: () => void;
-  setOpen?: (open: boolean) => void; 
+  itemToEdit?: ClothingItem;
+  onItemSaved?: () => void;
+  setOpen: (open: boolean) => void; 
 }
 
 const PLACEHOLDER_IMAGE_URL = "https://placehold.co/300x300.png?text=Prenda";
 
-export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFormProps) {
+export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClothingItemFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl]   = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isAutocompleting, setIsAutocompleting] = useState(false);
 
@@ -72,8 +74,36 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       color: "",
       season: "",
       fabric: "",
+      image: undefined,
     },
   });
+
+  const mode = itemToEdit ? 'edit' : 'add';
+
+  useEffect(() => {
+    if (mode === 'edit' && itemToEdit) {
+      form.reset({
+        name: itemToEdit.name,
+        type: itemToEdit.type,
+        color: itemToEdit.color,
+        season: itemToEdit.season,
+        fabric: itemToEdit.fabric,
+        image: undefined, // Image is handled by previewUrl and selectedImage
+      });
+      if (itemToEdit.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL && itemToEdit.imageUrl.startsWith('data:image')) {
+        setPreviewUrl(itemToEdit.imageUrl);
+      } else {
+        setPreviewUrl(null); // Or set to placeholder if preferred for edit mode with no initial image
+      }
+      setSelectedImage(null); // Reset selected file on mode change
+    } else {
+      form.reset({
+        name: "", type: "", color: "", season: "", fabric: "", image: undefined,
+      });
+      setPreviewUrl(null);
+      setSelectedImage(null);
+    }
+  }, [itemToEdit, mode, form]);
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -86,11 +116,9 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           duration: 7000,
         });
         setSelectedImage(null);
-        setPreviewUrl(null);
+        setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl ? itemToEdit.imageUrl : null); // Revert to original or null
         form.setValue("image", undefined); 
-        if (event.target) { 
-            event.target.value = "";
-        }
+        if (event.target) event.target.value = "";
         return;
       }
       setSelectedImage(file);
@@ -101,16 +129,14 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         if (result.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
             toast({
               title: "Imagen demasiado compleja",
-              description: `Después de procesar, la información de la imagen es demasiado grande para guardarla directamente. Intenta con una imagen más simple o de menor resolución, o una con menos detalles (menos de ${MAX_FILE_SIZE_MB}MB).`,
+              description: `Después de procesar, la información de la imagen es demasiado grande para guardarla directamente. Intenta con una imagen más simple o de menor resolución (menos de ${MAX_FILE_SIZE_MB}MB).`,
               variant: "destructive",
               duration: 9000,
             });
             setSelectedImage(null);
-            setPreviewUrl(null);
+            setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl ? itemToEdit.imageUrl : null); // Revert
             form.setValue("image", undefined);
-             if (event.target) { 
-                event.target.value = "";
-            }
+            if (event.target) event.target.value = "";
             return;
         }
         setPreviewUrl(result);
@@ -121,7 +147,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
 
   const handleAIAutocomplete = async () => {
     if (!previewUrl) {
-      toast({ title: "Error", description: "Por favor, selecciona una imagen primero.", variant: "destructive" });
+      toast({ title: "Error", description: "Por favor, selecciona o carga una imagen primero.", variant: "destructive" });
       return;
     }
     setIsAutocompleting(true);
@@ -129,16 +155,17 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       const result: AutocompleteClothingDetailsOutput = await autocompleteClothingDetails({ photoDataUri: previewUrl });
       
       let suggestedSeason = result.season || "";
-      if (!suggestedSeason || !seasons.includes(suggestedSeason)) {
-        suggestedSeason = "Todo el año";
+      if (!seasons.includes(suggestedSeason)) {
+        suggestedSeason = "Todo el año"; 
       }
-
-      form.setValue("type", result.type || "");
-      form.setValue("color", result.color || "");
-      form.setValue("season", suggestedSeason);
-      form.setValue("fabric", result.fabric || "");
       
-      if (!form.getValues("name")) {
+      form.setValue("type", result.type || form.getValues("type"));
+      form.setValue("color", result.color || form.getValues("color"));
+      form.setValue("season", suggestedSeason);
+      form.setValue("fabric", result.fabric || form.getValues("fabric"));
+      
+      const currentName = form.getValues("name");
+      if (!currentName || mode === 'add') { // Only auto-set name in add mode or if name is empty
         if (result.type && result.color) {
           form.setValue("name", `${result.type} ${result.color}`);
         } else if (result.type) {
@@ -156,16 +183,18 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
-      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para añadir prendas. Por favor, revisa tu sesión.", variant: "destructive", duration: 9000 });
+      toast({ title: "Error de autenticación", description: "Debes iniciar sesión. Por favor, revisa tu sesión.", variant: "destructive", duration: 9000 });
       return;
     }
     
-    let imageUrlToSave = PLACEHOLDER_IMAGE_URL;
-    if (previewUrl) {
+    setIsSaving(true);
+    let imageUrlToSave: string;
+
+    if (selectedImage && previewUrl) { // A new image was selected and processed
       if (previewUrl.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
         toast({
           title: "Error al guardar: Imagen demasiado grande",
-          description: `La información de la imagen es demasiado extensa para guardarse. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB) o con menos detalles.`,
+          description: `La información de la nueva imagen es demasiado extensa. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`,
           variant: "destructive",
           duration: 9000,
         });
@@ -173,56 +202,63 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         return;
       }
       imageUrlToSave = previewUrl;
+    } else if (mode === 'edit' && itemToEdit?.imageUrl) { // Editing and no new image, use existing
+      imageUrlToSave = itemToEdit.imageUrl;
+    } else { // Adding and no image, or editing and original was placeholder
+      imageUrlToSave = PLACEHOLDER_IMAGE_URL;
     }
 
-    setIsSaving(true);
-    try {
-      await addDoc(collection(db, "clothingItems"), {
-        userId: user.uid,
-        name: values.name,
-        type: values.type,
-        color: values.color,
-        season: values.season,
-        fabric: values.fabric,
-        imageUrl: imageUrlToSave,
-        createdAt: serverTimestamp(),
-      });
+    const dataToSave = {
+      userId: user.uid,
+      name: values.name,
+      type: values.type,
+      color: values.color,
+      season: values.season,
+      fabric: values.fabric,
+      imageUrl: imageUrlToSave,
+      // createdAt is only set on add, not updated on edit
+    };
 
-      toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
+    try {
+      if (mode === 'edit' && itemToEdit) {
+        const itemRef = doc(db, "clothingItems", itemToEdit.id);
+        await updateDoc(itemRef, dataToSave); // Don't update createdAt for edits
+        toast({ title: "¡Prenda actualizada!", description: `${values.name} se ha actualizado en tu armario.` });
+      } else {
+        await addDoc(collection(db, "clothingItems"), {
+          ...dataToSave,
+          createdAt: serverTimestamp(),
+        });
+        toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
+      }
+
       form.reset();
       setSelectedImage(null);
       setPreviewUrl(null);
-       const imageUploadInput = document.getElementById('image-upload') as HTMLInputElement;
-       if (imageUploadInput) {
-        imageUploadInput.value = "";
-      }
-      if (onItemAdded) onItemAdded();
-      if (setOpen) setOpen(false);
+      const imageUploadInput = document.getElementById('image-upload') as HTMLInputElement;
+      if (imageUploadInput) imageUploadInput.value = "";
+      
+      if (onItemSaved) onItemSaved();
+      setOpen(false);
 
     } catch (error: any) {
-      console.error("Error detallado al añadir prenda:", error);
-      let detailedErrorMessage = "No se pudo añadir la prenda. Revisa la consola del navegador para más detalles (F12).";
-      if (error.code) { 
-        detailedErrorMessage += ` Código de error: ${error.code}.`;
-      } else if (error.message) {
-        detailedErrorMessage += ` Mensaje: ${error.message}.`;
-      }
+      console.error("Error detallado al guardar prenda:", error);
+      let detailedErrorMessage = "No se pudo guardar la prenda. Revisa la consola del navegador para más detalles (F12).";
+      if (error.code) detailedErrorMessage += ` Código: ${error.code}.`;
+      else if (error.message) detailedErrorMessage += ` Mensaje: ${error.message}.`;
+      
       if (error.message?.toLowerCase().includes('document exceeds maximum size') || error.message?.toLowerCase().includes('payload is too large')) {
           detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse. Intenta con una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`;
       } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
       }
-
-      toast({ 
-        title: "Error al Guardar Prenda", 
-        description: detailedErrorMessage, 
-        variant: "destructive",
-        duration: 15000
-      });
+      toast({ title: "Error al Guardar Prenda", description: detailedErrorMessage, variant: "destructive", duration: 15000 });
     } finally {
       setIsSaving(false);
     }
   }
+  
+  const currentPreviewImage = previewUrl || (mode === 'edit' && itemToEdit?.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit?.imageUrl : null);
 
   return (
     <Form {...form}>
@@ -239,8 +275,8 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                     htmlFor="image-upload"
                     className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer border-border hover:border-primary transition-colors"
                   >
-                    {previewUrl ? (
-                      <Image src={previewUrl} alt="Previsualización" width={150} height={150} className="object-contain max-h-full" data-ai-hint="clothing item" />
+                    {currentPreviewImage ? (
+                      <Image src={currentPreviewImage} alt="Previsualización" width={150} height={150} className="object-contain max-h-full" data-ai-hint="clothing item" />
                     ) : (
                       <div className="flex flex-col items-center justify-center pt-5 pb-6 text-muted-foreground">
                         <UploadCloud className="w-10 h-10 mb-3" />
@@ -259,11 +295,11 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                       disabled={isSaving || isAutocompleting}
                     />
                   </label>
-                  {previewUrl && (
+                  {currentPreviewImage && ( // Show AI button if there's any preview (new or existing)
                     <Button
                       type="button"
                       onClick={handleAIAutocomplete}
-                      disabled={isAutocompleting || isSaving || !selectedImage}
+                      disabled={isAutocompleting || isSaving}
                       variant="outline"
                       size="sm"
                     >
@@ -383,9 +419,9 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSaving || isAutocompleting || !form.formState.isValid}>
+        <Button type="submit" className="w-full" disabled={isSaving || isAutocompleting || !form.formState.isValid && form.formState.isSubmitted}>
           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isSaving ? "Guardando prenda..." : "Añadir Prenda"}
+          {isSaving ? (mode === 'edit' ? "Guardando cambios..." : "Guardando prenda...") : (mode === 'edit' ? "Guardar Cambios" : "Añadir Prenda")}
         </Button>
         {!form.formState.isValid && form.formState.isSubmitted && <p className="text-sm text-destructive text-center mt-2">Revisa los campos. Hay errores o faltan datos.</p>}
       </form>
