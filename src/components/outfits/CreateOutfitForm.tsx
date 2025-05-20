@@ -28,7 +28,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { db } from "@/lib/firebase";
-import { useAuth } from "@/hooks/use-auth"; 
+import { useAuth } from "@/contexts/AuthContext"; 
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
 
@@ -241,3 +241,4 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 // import { useContext } from 'react';
 // import { AuthContext } from '@/contexts/AuthContext';
 // export const useAuth = () => useContext(AuthContext);
+
