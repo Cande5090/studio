@@ -16,7 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/dashboard/wardrobe", label: "Mi Armario", icon: Shirt },
   { href: "/dashboard/outfits", label: "Mis Atuendos", icon: Users }, // Users icon as placeholder for multiple items
-  { href: "/dashboard/suggestions", label: "Sugerencias IA", icon: Sparkles },
+  // { href: "/dashboard/suggestions", label: "Sugerencias IA", icon: Sparkles }, // Removed AI Suggestions
   { href: "/dashboard/profile", label: "Perfil", icon: Settings },
 ];
 
