@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useState } from "react";
+// useState removed as it's not used
 import { Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,13 +28,13 @@ const formSchema = z.object({
 
 interface SuggestOutfitFormProps {
   wardrobe: ClothingItem[];
-  onSuggestionReceived: (suggestion: SuggestOutfitOutput | null) => void; // Can now be null
+  onSuggestionReceived: (suggestion: SuggestOutfitOutput | null) => void;
   setIsSuggesting: (isSuggesting: boolean) => void;
   isSuggesting: boolean;
 }
 
-const MAX_WARDROBE_ITEMS_FOR_AI = 50; // Max items to send to AI
-const AI_SUGGESTION_TIMEOUT_MS = 90000; // 90 seconds timeout
+const MAX_WARDROBE_ITEMS_FOR_AI = 50; 
+const AI_SUGGESTION_TIMEOUT_MS = 90000; 
 
 export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggesting, isSuggesting }: SuggestOutfitFormProps) {
   const { toast } = useToast();
@@ -53,14 +53,14 @@ export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggest
     }
 
     setIsSuggesting(true);
-    onSuggestionReceived(null); // Clear previous suggestion
+    onSuggestionReceived(null); 
 
     try {
-      // Wardrobe is already sorted by most recent in the parent component
       const limitedWardrobe = wardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
       
+      // Map to the WardrobeItemForAI type, which now expects an ID and no imageUrl
       const wardrobeForAI: WardrobeItemForAI[] = limitedWardrobe.map(item => ({
-        imageUrl: item.imageUrl,
+        id: item.id, 
         type: item.type,
         color: item.color,
         season: item.season,
@@ -95,7 +95,7 @@ export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggest
       } else {
         toast({ title: "Error de IA", description: "No se pudo sugerir un atuendo. Inténtalo de nuevo.", variant: "destructive" });
       }
-      onSuggestionReceived(null); // Ensure suggestion is cleared on error
+      onSuggestionReceived(null);
     } finally {
       setIsSuggesting(false);
     }

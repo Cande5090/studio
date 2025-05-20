@@ -1,15 +1,24 @@
 
+"use client";
+
 import type { SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
+import type { ClothingItem } from "@/types"; // Import ClothingItem
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquareText, Shirt } from "lucide-react"; // Added Shirt as a fallback icon
+import { MessageSquareText, Shirt } from "lucide-react";
+import { useMemo } from "react"; // Import useMemo
 
 interface SuggestedOutfitDisplayProps {
   suggestion: SuggestOutfitOutput | null;
+  wardrobe: ClothingItem[]; // Add wardrobe prop
 }
 
-export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayProps) {
+export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfitDisplayProps) {
+  const wardrobeMap = useMemo(() => {
+    return new Map(wardrobe.map(item => [item.id, item]));
+  }, [wardrobe]);
+
   if (!suggestion) {
     return (
       <Card className="mt-8 shadow-lg">
@@ -18,7 +27,7 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Esperando sugerencia...
+            Esperando sugerencia... Introduce una ocasión arriba y pide una sugerencia.
           </p>
         </CardContent>
       </Card>
@@ -41,24 +50,32 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
       <CardContent className="space-y-6">
         {hasOutfitItems ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {suggestion.outfitSuggestion!.map((item, index) => {
-              const itemType = item.type || "Prenda";
-              const itemColor = item.color || ""; // Default to empty if not specified
-              const itemName = item.type ? (item.color ? `${item.type} ${item.color}` : item.type) : "Prenda";
+            {suggestion.outfitSuggestion!.map((suggestedItem, index) => {
+              const originalItem = suggestedItem.id ? wardrobeMap.get(suggestedItem.id) : undefined;
+
+              const displayImageUrl = (originalItem?.imageUrl && originalItem.imageUrl.startsWith('data:image')) 
+                                      ? originalItem.imageUrl 
+                                      : "https://placehold.co/200x250.png?text=Prenda";
+              
+              const displayType = suggestedItem.type || originalItem?.type || "Prenda";
+              const displayColor = suggestedItem.color || originalItem?.color || "";
+              
+              const itemName = displayType + (displayColor ? ` ${displayColor}` : "");
               const altText = itemName;
               const titleText = itemName;
+              const aiHint = displayType !== "Prenda" ? displayType.toLowerCase() : "clothing item";
+
 
               return (
-                <div key={index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
+                <div key={originalItem?.id || index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
                   <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
                    <Image
-                      src={item.imageUrl || "https://placehold.co/200x250.png?text=Prenda"} 
+                      src={displayImageUrl}
                       alt={altText}
                       layout="fill"
                       objectFit="cover"
-                      data-ai-hint={item.type ? item.type.toLowerCase() : "clothing item"}
+                      data-ai-hint={aiHint}
                       onError={(e) => {
-                        // Fallback for broken image URLs, though placeholder should handle most
                         e.currentTarget.src = "https://placehold.co/200x250.png?text=Error";
                       }}
                     />
@@ -66,19 +83,19 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
                   <p className="text-sm font-medium text-center truncate w-full" title={titleText}>
                     {itemName}
                   </p>
-                  {/* Optionally, display other details like material or season if needed */}
-                  {/* {item.material && <p className="text-xs text-muted-foreground text-center">Material: {item.material}</p>} */}
-                  {/* {item.season && <p className="text-xs text-muted-foreground text-center">Temporada: {item.season}</p>} */}
+                  {/* Optionally display other details from originalItem or suggestedItem if needed */}
+                  {/* <p className="text-xs text-muted-foreground">S: {suggestedItem.season || originalItem?.season}</p> */}
+                  {/* <p className="text-xs text-muted-foreground">M: {suggestedItem.material || originalItem?.fabric}</p> */}
                 </div>
               );
             })}
           </div>
         ) : (
-           suggestion.reasoning ? ( // If there's reasoning but no items
+           suggestion.reasoning ? ( 
             <p className="text-sm text-muted-foreground">
               La IA no especificó prendas para esta sugerencia. Ver razonamiento abajo.
             </p>
-           ) : ( // No items and no reasoning (yet or failed)
+           ) : ( 
             <div className="text-center py-8">
                 <Shirt className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">
@@ -99,7 +116,7 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
             </ScrollArea>
           </div>
         )}
-        {!suggestion.reasoning && hasOutfitItems && ( // Has items but no reasoning
+        {!suggestion.reasoning && hasOutfitItems && ( 
            <p className="text-sm text-muted-foreground pt-4 border-t">
             La IA no proporcionó una explicación para esta sugerencia.
           </p>

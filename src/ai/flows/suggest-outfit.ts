@@ -13,42 +13,40 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+// Schema for individual wardrobe items sent to the AI
+const WardrobeItemForAISchema = z.object({
+  id: z.string().describe('The unique ID of the clothing item.'),
+  type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress).'),
+  color: z.string().describe('The color of the clothing item.'),
+  season: z.string().describe('The season the item is most suited for.'),
+  material: z.string().describe('The material of the clothing item.'),
+  // imageUrl is intentionally omitted here; AI will use ID to refer to items.
+});
+
 const SuggestOutfitInputSchema = z.object({
   occasion: z.string().describe('The occasion for which to suggest an outfit.'),
   wardrobe: z
-    .array(
-      z.object({
-        // Make sure all fields here match what's sent from the frontend
-        id: z.string().optional().describe('The unique ID of the clothing item.'), // Added optional ID
-        imageUrl: z.string().describe('URL of the clothing item image.'),
-        type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress).'),
-        color: z.string().describe('The color of the clothing item.'),
-        season: z.string().describe('The season the item is most suited for.'),
-        material: z.string().describe('The material of the clothing item.'),
-      })
-    )
-    .describe('The user wardrobe items.'),
+    .array(WardrobeItemForAISchema)
+    .describe("The user's wardrobe items, each with an ID and attributes. The AI should use the ID to refer to items."),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 
+// Schema for items returned by the AI as part of the suggestion
 const SuggestedItemSchema = z.object({
-  // Ensure these fields are included in the prompt and AI is instructed to return them
-  // Matching the fields from WardrobeItemForAI and what the display component expects
-  imageUrl: z.string().describe('URL of the clothing item image. Must be from the provided wardrobe item.').optional(),
-  type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress). Must be from the provided wardrobe item.').optional(),
-  color: z.string().describe('The color of the clothing item. Must be from the provided wardrobe item.').optional(),
-  season: z.string().describe('The season the item is most suited for. Must be from the provided wardrobe item.').optional(),
-  material: z.string().describe('The material of the clothing item. Must be from the provided wardrobe item.').optional(),
-  // We are not asking the AI for ID here, as it might confuse it if it's generating suggestions.
-  // The AI should describe the item based on the input.
+  id: z.string().describe("The ID of the clothing item selected from the user's wardrobe. This ID MUST match one of the IDs from the input wardrobe list."),
+  type: z.string().describe('The type of clothing item (e.g., shirt, pants, dress), copied or inferred.').optional(),
+  color: z.string().describe('The color of the clothing item, copied or inferred.').optional(),
+  season: z.string().describe('The season the item is most suited for, copied or inferred.').optional(),
+  material: z.string().describe('The material of the clothing item, copied or inferred.').optional(),
+  // AI does not return imageUrl; client reconstructs it using the ID.
 });
 
 const SuggestOutfitOutputSchema = z.object({
   outfitSuggestion: z
     .array(SuggestedItemSchema)
-    .describe('An array of clothing items selected from the user\'s wardrobe for the outfit. Each item MUST include imageUrl, type, color, season, and material, copied exactly from the input wardrobe for the selected items.')
+    .describe("An array of clothing items selected from the user's wardrobe. Each item MUST include its original 'id'. Other fields like 'type', 'color' are helpful if returned.")
     .optional(),
-  reasoning: z.string().describe('The reasoning behind the outfit suggestion. This field is mandatory.').optional(), // Made optional to prevent validation errors
+  reasoning: z.string().describe('The reasoning behind the outfit suggestion. This field is mandatory.').optional(),
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
 
@@ -64,18 +62,19 @@ const prompt = ai.definePrompt({
 
 Ocasión: {{{occasion}}}
 
-Prendas disponibles en el armario del usuario:
+Prendas disponibles en el armario del usuario (Presta atención a los detalles exactos de cada prenda, especialmente el 'id'):
 {{#each wardrobe}}
-- Prenda: Tipo={{type}}, Color={{color}}, Temporada={{season}}, Material={{material}}, URL de Imagen={{imageUrl}}
+- Prenda: ID={{id}}, Tipo={{type}}, Color={{color}}, Temporada={{season}}, Material={{material}}
 {{/each}}
 
-Instrucciones importantes:
+Instrucciones MUY IMPORTANTES:
 1.  Selecciona prendas ÚNICAMENTE de la lista proporcionada arriba.
-2.  Para CADA PRENDA que incluyas en tu 'outfitSuggestion', DEBES devolver EXACTAMENTE los mismos campos: 'imageUrl', 'type', 'color', 'season' y 'material' que tenía esa prenda en la lista del armario del usuario. NO omitas ni alteres estos detalles para las prendas seleccionadas.
-3.  Proporciona SIEMPRE un 'reasoning' (razonamiento) explicando por qué elegiste esas prendas para la ocasión. Este campo es obligatorio.
-4.  Si no puedes formar un atuendo adecuado con las prendas disponibles, devuelve un array vacío para 'outfitSuggestion' pero AÚN ASÍ incluye un 'reasoning' explicando por qué no fue posible.
+2.  Para CADA PRENDA que incluyas en tu 'outfitSuggestion', DEBES devolver su 'id' original de la lista de arriba. Adicionalmente, es útil si incluyes 'type', 'color', 'season', y 'material' copiados de la prenda original.
+3.  NO incluyas 'imageUrl' en tu respuesta. El cliente se encargará de buscar la imagen usando el 'id'.
+4.  Proporciona SIEMPRE un 'reasoning' (razonamiento) explicando por qué elegiste esas prendas para la ocasión.
+5.  Si no puedes formar un atuendo adecuado con las prendas disponibles, devuelve un array vacío para 'outfitSuggestion' pero AÚN ASÍ incluye un 'reasoning' explicando por qué no fue posible.
 
-Devuelve tu respuesta en el formato JSON especificado por el esquema de salida.
+Devuelve tu respuesta en el formato JSON especificado por el esquema de salida. Asegúrate de que cada objeto dentro de 'outfitSuggestion' contenga el 'id' de la prenda original del armario.
 `,
 });
 

@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
-import { Loader2, Sparkles } from "lucide-react"; // Added Sparkles import
+import { useEffect, useState, useMemo } from "react"; // Added useMemo
+import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot } from "firebase/firestore"; // Added onSnapshot
+import { Loader2, Sparkles } from "lucide-react"; 
 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,24 +12,27 @@ import type { SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
 import { SuggestOutfitForm } from "@/components/suggestions/SuggestOutfitForm";
 import { SuggestedOutfitDisplay } from "@/components/suggestions/SuggestedOutfitDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast"; // Added useToast
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
+  const { toast } = useToast(); // Added toast
   const [wardrobe, setWardrobe] = useState<ClothingItem[]>([]);
   const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   useEffect(() => {
-    async function fetchWardrobe() {
-      if (user) {
-        setIsLoadingWardrobe(true);
-        const q = query(
-          collection(db, "clothingItems"),
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc") 
-        );
-        const querySnapshot = await getDocs(q);
+    if (user) {
+      setIsLoadingWardrobe(true);
+      const q = query(
+        collection(db, "clothingItems"),
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc")
+      );
+      // Use onSnapshot for real-time updates if desired, or stick to getDocs for one-time fetch.
+      // For suggestions, one-time fetch is often enough unless wardrobe changes very frequently during suggestion session.
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const items: ClothingItem[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
@@ -41,10 +44,21 @@ export default function SuggestionsPage() {
         });
         setWardrobe(items);
         setIsLoadingWardrobe(false);
-      }
+      }, (error) => {
+        console.error("Error fetching wardrobe for suggestions:", error);
+        toast({
+          title: "Error al Cargar Armario",
+          description: "No se pudieron cargar tus prendas para las sugerencias.",
+          variant: "destructive",
+        });
+        setIsLoadingWardrobe(false);
+      });
+      return () => unsubscribe(); // Cleanup snapshot listener
+    } else {
+      setWardrobe([]);
+      setIsLoadingWardrobe(false);
     }
-    fetchWardrobe();
-  }, [user]);
+  }, [user, toast]);
 
   if (isLoadingWardrobe) {
     return (
@@ -66,7 +80,7 @@ export default function SuggestionsPage() {
       </div>
       
       <SuggestOutfitForm
-        wardrobe={wardrobe}
+        wardrobe={wardrobe} // Pass the full wardrobe
         onSuggestionReceived={setSuggestion}
         isSuggesting={isSuggesting}
         setIsSuggesting={setIsSuggesting}
@@ -81,7 +95,8 @@ export default function SuggestionsPage() {
       )}
       
       {!isSuggesting && suggestion && (
-        <SuggestedOutfitDisplay suggestion={suggestion} />
+        // Pass the full wardrobe to SuggestedOutfitDisplay
+        <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} />
       )}
        {!isSuggesting && !suggestion && wardrobe.length > 0 && !isLoadingWardrobe && (
         <div className="mt-8 text-center p-10 border-2 border-dashed border-border rounded-lg bg-card/50">
@@ -92,8 +107,15 @@ export default function SuggestionsPage() {
           </p>
         </div>
       )}
+       {!isSuggesting && !suggestion && wardrobe.length === 0 && !isLoadingWardrobe && (
+        <div className="mt-8 text-center p-10 border-2 border-dashed border-border rounded-lg bg-card/50">
+          <Sparkles className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold">Tu armario está vacío</h2>
+          <p className="text-muted-foreground">
+            Añade algunas prendas a tu armario para poder recibir sugerencias de atuendos.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
-
-    

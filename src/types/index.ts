@@ -27,11 +27,12 @@ export interface OutfitWithItems extends Outfit {
   items: ClothingItem[];
 }
 
-
+// Information sent to the AI for suggesting outfits
 export interface WardrobeItemForAI {
-  imageUrl: string;
+  id: string; // ID is crucial for linking back
   type: string;
   color: string;
   season: string;
   material: string; // Maps to 'fabric' in ClothingItem
+  // imageUrl is NOT sent to the AI to avoid long data URIs in prompt
 }
