@@ -20,7 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; // Assuming Textarea for name/description if needed
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -38,13 +38,16 @@ const clothingTypes = ["Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "J
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 const fabrics = ["Algodón", "Lana", "Seda", "Lino", "Poliéster", "Cuero", "Denim", "Otro"];
 
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const formSchema = z.object({
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres." }),
   type: z.string().min(1, { message: "Por favor, selecciona un tipo." }),
   color: z.string().min(1, { message: "Por favor, introduce un color." }),
   season: z.string().min(1, { message: "Por favor, selecciona una estación." }),
   fabric: z.string().min(1, { message: "Por favor, selecciona un tejido." }),
-  image: z.instanceof(File).optional(),
+  image: z.instanceof(File).optional().refine(file => file ? file.size <= MAX_FILE_SIZE_BYTES : true, `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB.`),
 });
 
 interface AddClothingItemFormProps {
@@ -74,8 +77,22 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({
+          title: "Archivo demasiado grande",
+          description: `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB. Intenta con una imagen más pequeña.`,
+          variant: "destructive",
+        });
+        setSelectedImage(null);
+        setPreviewUrl(null);
+        form.setValue("image", undefined); // Clear RHF state
+        if (event.target) { // Clear the file input visually
+            event.target.value = "";
+        }
+        return;
+      }
       setSelectedImage(file);
-      form.setValue("image", file); // Update RHF state
+      form.setValue("image", file, { shouldValidate: true }); 
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string);
@@ -113,7 +130,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       toast({ title: "Error", description: "Debes iniciar sesión para añadir prendas.", variant: "destructive" });
       return;
     }
-    if (!selectedImage) {
+    if (!selectedImage) { // selectedImage state is more reliable here than values.image
       toast({ title: "Error", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive" });
       return;
     }
@@ -141,6 +158,9 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       form.reset();
       setSelectedImage(null);
       setPreviewUrl(null);
+       if (document.getElementById('image-upload') as HTMLInputElement) {
+        (document.getElementById('image-upload') as HTMLInputElement).value = "";
+      }
       if (onItemAdded) onItemAdded();
       if (setOpen) setOpen(false);
 
@@ -158,7 +178,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         <FormField
           control={form.control}
           name="image"
-          render={({ field }) => ( // field is not directly used for input type=file, but RHF needs it
+          render={({ field }) => ( 
             <FormItem>
               <FormLabel>Imagen de la Prenda</FormLabel>
               <FormControl>
@@ -175,7 +195,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                         <p className="mb-2 text-sm">
                           <span className="font-semibold">Haz clic para subir</span> o arrastra y suelta
                         </p>
-                        <p className="text-xs">PNG, JPG, WEBP (MAX. 5MB)</p>
+                        <p className="text-xs">PNG, JPG, WEBP (MAX. {MAX_FILE_SIZE_MB}MB)</p>
                       </div>
                     )}
                     <Input
@@ -183,7 +203,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                       type="file"
                       accept="image/png, image/jpeg, image/webp"
                       className="hidden"
-                      onChange={handleImageChange}
+                      onChange={handleImageChange} // Uses custom handler
                       disabled={isUploading || isAutocompleting}
                     />
                   </label>
@@ -191,7 +211,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                     <Button
                       type="button"
                       onClick={handleAIAutocomplete}
-                      disabled={isAutocompleting || isUploading}
+                      disabled={isAutocompleting || isUploading || !selectedImage}
                       variant="outline"
                       size="sm"
                     >
@@ -319,3 +339,5 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
     </Form>
   );
 }
+
+    
