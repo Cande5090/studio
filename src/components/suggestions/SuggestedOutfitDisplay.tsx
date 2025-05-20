@@ -20,8 +20,6 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
   }, [wardrobe]);
 
   if (!suggestion) {
-    // Este estado se maneja en la página principal (SuggestionsPage)
-    // cuando !isSuggesting && !suggestion
     return null; 
   }
   
@@ -39,7 +37,6 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
         {hasOutfitItems ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {suggestion.outfitSuggestion!.map((suggestedItem, index) => {
-              // El ID es obligatorio en SuggestedItemSchema según el prompt
               const originalItem = suggestedItem.id ? wardrobeMap.get(suggestedItem.id) : undefined;
 
               const displayType = suggestedItem.type || originalItem?.type || "Prenda";
@@ -48,31 +45,33 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
               let displayImageUrl = "https://placehold.co/200x250.png?text=Prenda";
               let aiHint = "clothing item";
 
-              if (originalItem) {
-                if (originalItem.imageUrl && originalItem.imageUrl.startsWith('data:image')) {
+              if (originalItem?.imageUrl) {
+                if (originalItem.imageUrl.startsWith('data:image')) {
                   displayImageUrl = originalItem.imageUrl;
-                } else if (originalItem.imageUrl) { 
-                  // Si no es Data URI, podría ser una URL externa o un placeholder diferente.
-                  // Por ahora, si no es data URI, usamos el placeholder general.
-                  // En un futuro, podríamos intentar usar originalItem.imageUrl si es una URL https válida.
+                } else if (originalItem.imageUrl !== "https://placehold.co/300x300.png?text=Prenda") {
+                  // If it's not a data URI and not the generic placeholder, it might be another specific placeholder
+                  // or an external URL. For safety, and given we moved to Data URIs,
+                  // we'll only use it if it's a Data URI. Otherwise, fallback.
+                  // This part could be refined if other valid URL types are expected.
+                  displayImageUrl = "https://placehold.co/200x250.png?text=Revisar+URL";
                 }
-                aiHint = originalItem.type.toLowerCase() || "clothing item";
+                 // If originalItem.imageUrl IS the generic placeholder, displayImageUrl remains the default small placeholder
               }
 
 
-              const itemName = `${displayType} ${displayColor}`.trim();
-              const altText = itemName || "Prenda sugerida";
-              const titleText = itemName || "Prenda sugerida";
+              const itemName = `${displayType} ${displayColor}`.trim() || "Prenda";
+              const altText = itemName;
+              const titleText = itemName;
               
               return (
-                <div key={originalItem?.id || `suggested-${index}`} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
+                <div key={originalItem?.id || `suggested-${index}-${suggestedItem.color}`} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
                   <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
                    <Image
                       src={displayImageUrl}
                       alt={altText}
                       layout="fill"
                       objectFit="cover"
-                      data-ai-hint={aiHint}
+                      data-ai-hint={aiHint.split(' ')[0]} // Use first word of type for hint
                       onError={(e) => {
                         e.currentTarget.src = "https://placehold.co/200x250.png?text=Error";
                         e.currentTarget.alt = "Error al cargar imagen";
@@ -80,7 +79,7 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
                     />
                   </div>
                   <p className="text-sm font-medium text-center truncate w-full" title={titleText}>
-                    {itemName || "Prenda"}
+                    {itemName}
                   </p>
                 </div>
               );
@@ -89,18 +88,19 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
         ) : (
            suggestion.reasoning ? ( 
             <p className="text-sm text-muted-foreground">
-              {/* El razonamiento se mostrará abajo, este es un placeholder si no hay prendas Y hay razonamiento */}
+              {/* El razonamiento se mostrará abajo. Este texto es si no hay prendas pero SÍ hay razonamiento. */}
             </p>
            ) : ( 
             <div className="text-center py-8">
                 <Shirt className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">
-                La IA está buscando o no pudo encontrar un atuendo.
+                  La IA no pudo generar un atuendo esta vez.
                 </p>
             </div>
            )
         )}
 
+        {/* Mostrar el razonamiento siempre que exista */}
         {suggestion.reasoning && (
           <div className="space-y-2 pt-4 border-t">
             <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -112,12 +112,8 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
             </ScrollArea>
           </div>
         )}
-        {!suggestion.reasoning && hasOutfitItems && ( 
-           <p className="text-sm text-muted-foreground pt-4 border-t">
-            La IA no proporcionó una explicación para esta sugerencia.
-          </p>
-        )}
       </CardContent>
     </Card>
   );
 }
+
