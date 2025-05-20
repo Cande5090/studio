@@ -1,21 +1,21 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Settings, UserCircle, KeyRound, Mail, Loader2 } from "lucide-react";
+import { Settings, UserCircle, KeyRound, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { auth } from "@/lib/firebase";
-import { updateProfile, EmailAuthProvider, reauthenticateWithCredential, updatePassword, updateEmail } from "firebase/auth";
+import { updateProfile, EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail } from "firebase/auth";
 
 const displayNameFormSchema = z.object({
   displayName: z.string().min(3, { message: "El nombre de usuario debe tener al menos 3 caracteres." }).max(50, { message: "El nombre no puede exceder los 50 caracteres." }),
@@ -30,18 +30,12 @@ const passwordFormSchema = z.object({
   path: ["confirmNewPassword"],
 });
 
-const emailFormSchema = z.object({
-  currentPassword: z.string().min(1, { message: "Por favor, introduce tu contraseña actual." }),
-  newEmail: z.string().email({ message: "Por favor, introduce un email válido." }),
-});
-
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [isUpdatingDisplayName, setIsUpdatingDisplayName] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
-  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
 
   const displayNameForm = useForm<z.infer<typeof displayNameFormSchema>>({
     resolver: zodResolver(displayNameFormSchema),
@@ -59,22 +53,12 @@ export default function ProfilePage() {
     },
   });
 
-  const emailForm = useForm<z.infer<typeof emailFormSchema>>({
-    resolver: zodResolver(emailFormSchema),
-    defaultValues: {
-      currentPassword: "",
-      newEmail: user?.email || "",
-    },
-  });
-
   // Update form defaults if user changes
-  useState(() => {
+  useEffect(() => {
     if (user) {
       displayNameForm.reset({ displayName: user.displayName || "" });
-      emailForm.reset({ currentPassword: "", newEmail: user.email || ""});
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, displayNameForm.reset, emailForm.reset]);
+  }, [user, displayNameForm]);
 
 
   const getInitials = (displayName?: string | null, email?: string | null) => {
@@ -129,35 +113,6 @@ export default function ProfilePage() {
     }
   }
 
-  async function onSubmitEmail(values: z.infer<typeof emailFormSchema>) {
-    if (!user || !user.email) return;
-    setIsUpdatingEmail(true);
-    try {
-      const credential = EmailAuthProvider.credential(user.email, values.currentPassword);
-      await reauthenticateWithCredential(user, credential);
-      await updateEmail(user, values.newEmail);
-      toast({ title: "¡Éxito!", description: "Email actualizado. Por favor, verifica tu nuevo email." });
-      // User email in UI will update once re-verified or on next login
-      // Or if we force a refresh of user token. For now, it's fine.
-      emailForm.reset({currentPassword: "", newEmail: values.newEmail});
-
-    } catch (error: any) {
-      console.error("Error updating email:", error);
-      let description = "No se pudo actualizar el email.";
-      if (error.code === 'auth/wrong-password') {
-        description = "La contraseña actual es incorrecta.";
-      } else if (error.code === 'auth/email-already-in-use') {
-        description = "El nuevo email ya está en uso por otra cuenta.";
-      } else if (error.code === 'auth/invalid-email') {
-        description = "El nuevo email no es válido.";
-      }
-      toast({ title: "Error al cambiar email", description, variant: "destructive" });
-    } finally {
-      setIsUpdatingEmail(false);
-    }
-  }
-
-
   if (!user) {
     return <p>Cargando perfil...</p>;
   }
@@ -179,8 +134,9 @@ export default function ProfilePage() {
           <CardDescription>Gestiona la información de tu cuenta.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-            <Label htmlFor="email">Email (Verificado)</Label>
+            <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={user.email || ""} disabled className="text-muted-foreground" />
+            <p className="text-xs text-muted-foreground pt-1">El cambio de email no está disponible actualmente.</p>
         </CardContent>
       </Card>
 
@@ -272,49 +228,6 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
       
-      {/* Change Email Form */}
-      <Card className="w-full max-w-2xl mx-auto shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Mail className="h-6 w-6 text-primary"/> Cambiar Email</CardTitle>
-          <CardDescription>Actualiza tu dirección de email. Necesitarás tu contraseña actual y verificar el nuevo email.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...emailForm}>
-            <form onSubmit={emailForm.handleSubmit(onSubmitEmail)} className="space-y-4">
-              <FormField
-                control={emailForm.control}
-                name="currentPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña Actual</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={emailForm.control}
-                name="newEmail"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nuevo Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="tu.nuevo@email.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isUpdatingEmail}>
-                {isUpdatingEmail && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Cambiar Email
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
     </div>
   );
 }
