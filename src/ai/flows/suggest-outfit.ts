@@ -76,11 +76,12 @@ Prendas disponibles en el armario del usuario (Presta MUCHA ATENCIÓN a los deta
 
 Instrucciones MUY IMPORTANTES:
 1.  **Selección de Prendas:** Selecciona prendas ÚNICAMENTE de la lista del armario proporcionada arriba. NO inventes prendas.
-2.  **IDs Obligatorios:** Para CADA PRENDA que incluyas en tu 'outfitSuggestion', DEBES devolver su 'id' original de la lista de arriba. Este campo 'id' es fundamental.
-3.  **Detalles Adicionales (Opcional pero Recomendado):** Si es posible, incluye también los campos 'type', 'color', 'season', y 'material' para cada prenda sugerida, copiándolos de la información original del armario.
-4.  **No Incluir 'imageUrl':** NO incluyas 'imageUrl' en tu respuesta. El cliente se encargará de buscar la imagen usando el 'id'.
+2.  **IDs Obligatorios en 'outfitSuggestion':** Para CADA PRENDA que incluyas en tu array 'outfitSuggestion', DEBES devolver su 'id' original de la lista de arriba. Este campo 'id' es fundamental para que el sistema funcione.
+3.  **Detalles Adicionales en 'outfitSuggestion' (Recomendado):** Si es posible, incluye también los campos 'type', 'color', 'season', y 'material' para cada prenda sugerida en 'outfitSuggestion', copiándolos de la información original del armario.
+4.  **No Incluir 'imageUrl':** NO incluyas 'imageUrl' en tu respuesta.
 5.  **Razonamiento Obligatorio y Detallado (en ESPAÑOL):**
-    *   Proporciona SIEMPRE un 'reasoning' explicando por qué elegiste ESAS PRENDAS ESPECÍFICAS (puedes referirte a ellas por su 'id', o por su 'type' y 'color' si los incluyes en la sugerencia).
+    *   Proporciona SIEMPRE un 'reasoning' explicando por qué elegiste esas prendas.
+    *   **IMPORTANTE SOBRE EL RAZONAMIENTO:** Cuando te refieras a prendas específicas en tu explicación textual para el usuario ('reasoning'), DEBES hacerlo usando su 'type' y 'color' (por ejemplo, "la camisa azul", "el pantalón negro"). **BAJO NINGUNA CIRCUNSTANCIA incluyas el 'id' de ninguna prenda en el texto del 'reasoning'**. El campo 'id' es solo para la parte estructurada 'outfitSuggestion' de la salida.
     *   Explica cómo las prendas combinan entre sí visual y semánticamente para la ocasión.
     *   **Si no puedes formar un atuendo completo y coherente** con las prendas disponibles (por ejemplo, si faltan zapatos adecuados para la ocasión, o no hay una prenda inferior que combine), tu 'reasoning' DEBE explicar claramente por qué no fue posible y QUÉ TIPO DE PRENDAS FALTAN O NO SON ADECUADAS. Por ejemplo: "No se pudo formar un atuendo completo para 'Boda Formal' porque no se encontraron zapatos de vestir en el armario. Se necesitarían unos tacones o zapatos elegantes." o "Para un día de invierno, faltaría una chaqueta abrigada. Con las prendas actuales, el atuendo no sería apropiado para el frío."
     *   El razonamiento es OBLIGATORIO, incluso si 'outfitSuggestion' está vacío o incompleto.
