@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Eye, Loader2, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Eye, Loader2, Search } from "lucide-react"; // Removed ChevronDown, ChevronUp as Accordion handles it
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,6 @@ interface CreateOutfitFormProps {
   existingOutfit?: OutfitWithItems | null;
 }
 
-// Define categories for the accordion
 const outfitCategories = [
   { name: "Prendas superiores", types: ["Camisa", "Jersey"] },
   { name: "Prendas inferiores", types: ["Pantalón", "Falda"] },
@@ -59,21 +58,24 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>(existingOutfit?.itemIds || []);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [openAccordions, setOpenAccordions] = useState<string[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingOutfit?.name || "",
+      name: "",
     },
   });
 
   useEffect(() => {
     if (existingOutfit) {
-      form.setValue("name", existingOutfit.name);
+      form.reset({ name: existingOutfit.name || "" });
       setSelectedItemIds(existingOutfit.itemIds || []);
+    } else {
+      form.reset({ name: "" });
+      setSelectedItemIds([]);
     }
   }, [existingOutfit, form]);
   
@@ -113,7 +115,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       userId: user.uid,
       name: values.name,
       itemIds: selectedItemIds,
-      description: "", // Can add later if needed
+      description: "", 
     };
 
     try {
@@ -182,27 +184,36 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 <AccordionContent className="px-1 pt-1 pb-2">
                   {category.items.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
-                      {category.items.map(item => (
-                        <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md cursor-pointer flex flex-col items-center gap-2 bg-background hover:bg-card transition-all"
-                             onClick={() => handleItemSelect(item.id)}>
-                          <Checkbox
-                            checked={selectedItemIds.includes(item.id)}
-                            onCheckedChange={() => handleItemSelect(item.id)}
-                            className="absolute top-2 right-2 z-10 h-5 w-5"
-                            aria-labelledby={`item-label-${item.id}`}
-                          />
-                          <div className="w-full aspect-[3/4] relative rounded overflow-hidden">
-                            <Image
-                              src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
-                              alt={item.name}
-                              layout="fill"
-                              objectFit="cover"
-                              data-ai-hint="clothing item"
+                      {category.items.map(item => {
+                        const checkboxId = `checkbox-outfit-item-${item.id}`;
+                        return (
+                          <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
+                            <Checkbox
+                              id={checkboxId}
+                              checked={selectedItemIds.includes(item.id)}
+                              onCheckedChange={() => handleItemSelect(item.id)}
+                              className="absolute top-2 right-2 z-10 h-5 w-5"
+                              aria-labelledby={`item-label-${item.id}`}
                             />
+                            <div className="w-full aspect-[3/4] relative rounded overflow-hidden">
+                               <label htmlFor={checkboxId} className="cursor-pointer block w-full h-full">
+                                <Image
+                                  src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
+                                  alt={item.name}
+                                  layout="fill"
+                                  objectFit="cover"
+                                  data-ai-hint="clothing item"
+                                />
+                              </label>
+                            </div>
+                            <span id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium">
+                              <label htmlFor={checkboxId} className="cursor-pointer">
+                                {item.name}
+                              </label>
+                            </span>
                           </div>
-                          <span id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium">{item.name}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground p-4 text-center">No hay prendas en esta categoría {searchTerm && "que coincidan con tu búsqueda"}.</p>
@@ -236,9 +247,4 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   );
 }
 
-// Helper hook to get user from AuthContext (avoids direct import if preferred)
-// src/hooks/use-auth.ts
-// import { useContext } from 'react';
-// import { AuthContext } from '@/contexts/AuthContext';
-// export const useAuth = () => useContext(AuthContext);
-
+    
