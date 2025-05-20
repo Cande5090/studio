@@ -2,8 +2,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore"; // Added orderBy, Timestamp
-import { Loader2 } from "lucide-react";
+import { collection, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore";
+import { Loader2, Sparkles } from "lucide-react"; // Added Sparkles import
 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +27,7 @@ export default function SuggestionsPage() {
         const q = query(
           collection(db, "clothingItems"),
           where("userId", "==", user.uid),
-          orderBy("createdAt", "desc") // Order by most recent
+          orderBy("createdAt", "desc") 
         );
         const querySnapshot = await getDocs(q);
         const items: ClothingItem[] = [];
@@ -36,7 +36,6 @@ export default function SuggestionsPage() {
           items.push({
             id: doc.id,
             ...data,
-            // Ensure createdAt is a JavaScript Date object
             createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
           } as ClothingItem);
         });
@@ -96,3 +95,5 @@ export default function SuggestionsPage() {
     </div>
   );
 }
+
+    

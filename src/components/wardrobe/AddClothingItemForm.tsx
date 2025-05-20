@@ -20,7 +20,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -85,8 +84,8 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
         });
         setSelectedImage(null);
         setPreviewUrl(null);
-        form.setValue("image", undefined); // Clear RHF state
-        if (event.target) { // Clear the file input visually
+        form.setValue("image", undefined); 
+        if (event.target) { 
             event.target.value = "";
         }
         return;
@@ -118,7 +117,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       }
       toast({ title: "¡Autocompletado!", description: "Campos sugeridos por IA." });
     } catch (error) {
-      console.error("Error autocompleting:", error);
+      console.error("Error autocompleting with AI:", error);
       toast({ title: "Error de IA", description: "No se pudieron autocompletar los detalles.", variant: "destructive" });
     } finally {
       setIsAutocompleting(false);
@@ -127,22 +126,20 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
-      toast({ title: "Error", description: "Debes iniciar sesión para añadir prendas.", variant: "destructive" });
+      toast({ title: "Error de autenticación", description: "Debes iniciar sesión para añadir prendas. Por favor, revisa tu sesión.", variant: "destructive", duration: 9000 });
       return;
     }
-    if (!selectedImage) { // selectedImage state is more reliable here than values.image
-      toast({ title: "Error", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive" });
+    if (!selectedImage) {
+      toast({ title: "Imagen no seleccionada", description: "Por favor, selecciona una imagen para la prenda.", variant: "destructive", duration: 9000 });
       return;
     }
 
     setIsUploading(true);
     try {
-      // Upload image to Firebase Storage
       const storageRef = ref(storage, `clothing_images/${user.uid}/${Date.now()}_${selectedImage.name}`);
       const snapshot = await uploadBytes(storageRef, selectedImage);
       const imageUrl = await getDownloadURL(snapshot.ref);
 
-      // Add clothing item to Firestore
       await addDoc(collection(db, "clothingItems"), {
         userId: user.uid,
         name: values.name,
@@ -158,15 +155,34 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
       form.reset();
       setSelectedImage(null);
       setPreviewUrl(null);
-       if (document.getElementById('image-upload') as HTMLInputElement) {
-        (document.getElementById('image-upload') as HTMLInputElement).value = "";
+       const imageUploadInput = document.getElementById('image-upload') as HTMLInputElement;
+       if (imageUploadInput) {
+        imageUploadInput.value = "";
       }
       if (onItemAdded) onItemAdded();
       if (setOpen) setOpen(false);
 
-    } catch (error) {
-      console.error("Error adding clothing item:", error);
-      toast({ title: "Error", description: "No se pudo añadir la prenda. Inténtalo de nuevo.", variant: "destructive" });
+    } catch (error: any) {
+      console.error(" detailed error adding clothing item:", error);
+      let detailedErrorMessage = "No se pudo añadir la prenda. Revisa la consola del navegador para más detalles (F12).";
+      if (error.code) { 
+        detailedErrorMessage += ` Código de error: ${error.code}.`;
+      } else if (error.message) {
+        detailedErrorMessage += ` Mensaje: ${error.message}.`;
+      }
+      // Attempt to provide more specific guidance based on common Firebase error codes
+      if (error.code === 'storage/unauthorized') {
+        detailedErrorMessage = "Error de permisos al subir la imagen. Asegúrate de que las reglas de Firebase Storage son correctas y estás autenticado. Revisa la consola (F12).";
+      } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
+         detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
+      }
+
+      toast({ 
+        title: "Error al Guardar Prenda", 
+        description: detailedErrorMessage, 
+        variant: "destructive",
+        duration: 15000 // Increased duration for user to read
+      });
     } finally {
       setIsUploading(false);
     }
@@ -195,7 +211,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                         <p className="mb-2 text-sm">
                           <span className="font-semibold">Haz clic para subir</span> o arrastra y suelta
                         </p>
-                        <p className="text-xs">PNG, JPG, WEBP (MAX. {MAX_FILE_SIZE_MB}MB)</p>
+                        <p className="text-xs">PNG, JPG, WEBP (MAX. ${MAX_FILE_SIZE_MB}MB)</p>
                       </div>
                     )}
                     <Input
@@ -203,7 +219,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
                       type="file"
                       accept="image/png, image/jpeg, image/webp"
                       className="hidden"
-                      onChange={handleImageChange} // Uses custom handler
+                      onChange={handleImageChange}
                       disabled={isUploading || isAutocompleting}
                     />
                   </label>
@@ -331,7 +347,7 @@ export function AddClothingItemForm({ onItemAdded, setOpen }: AddClothingItemFor
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={isUploading || isAutocompleting || !selectedImage}>
+        <Button type="submit" className="w-full" disabled={isUploading || isAutocompleting || !selectedImage || !form.formState.isValid}>
           {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isUploading ? "Guardando prenda..." : "Añadir Prenda"}
         </Button>
