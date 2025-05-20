@@ -46,18 +46,19 @@ const autocompleteClothingDetailsPrompt = ai.definePrompt({
   output: {schema: AutocompleteClothingDetailsOutputSchema},
   prompt: `Eres un asistente de IA experto en analizar imágenes de prendas de vestir y sugerir detalles sobre ellas. Todas tus respuestas deben ser en ESPAÑOL.
 
-Tu tarea es analizar la siguiente imagen y proporcionar la siguiente información:
+Tu tarea es analizar la siguiente imagen y proporcionar la siguiente información para los CUATRO campos siguientes:
 1.  **Tipo**: El tipo de prenda (ej. Camisa, Vestido, Pantalón, Zapato, Chaqueta, Falda, Jersey, Accesorio).
 2.  **Color**: El color predominante de la prenda (ej. Azul marino, Rojo vibrante, Blanco, Negro, Beige, Estampado floral).
-3.  **Temporada**: La temporada o estación para la que es más adecuada la prenda. **Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año"**.
+3.  **Temporada**: La temporada o estación para la que es más adecuada la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año"**. No inventes otros valores.
 4.  **Tejido**: El tejido principal de la prenda (ej. Algodón, Seda, Poliéster, Lino, Lana, Denim, Cuero Sintético).
 
-**Es crucial que proporciones valores para los cuatro campos solicitados: tipo, color, temporada y tejido. Intenta completar todos estos campos.**
+**NO OMITAS NINGÚN CAMPO. Proporciona un valor para tipo, color, temporada y tejido.**
+Asegúrate de que tu respuesta incluya los cuatro campos y que el campo 'temporada' sea estrictamente uno de los valores listados anteriormente.
 
 Imagen: {{media url=photoDataUri}}
 
 Por favor, devuelve la información estructurada según el esquema de salida. Recuerda, todas las respuestas en ESPAÑOL.
-Para el campo 'temporada', reitero, elige solo entre: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año".`,
+Para el campo 'temporada', reitero una vez más, es crucial que elijas solo entre: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año".`,
 });
 
 const autocompleteClothingDetailsFlow = ai.defineFlow(
