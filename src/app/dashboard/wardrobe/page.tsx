@@ -119,6 +119,7 @@ export default function WardrobePage() {
             </DialogDescription>
           </DialogHeader>
           <AddClothingItemForm 
+            key={formMode === 'edit' && editingItem ? editingItem.id : 'add-new-item'}
             setOpen={setIsFormDialogOpen} 
             itemToEdit={formMode === 'edit' ? editingItem : undefined}
             onItemSaved={handleItemSaved}

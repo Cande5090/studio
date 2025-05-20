@@ -7,7 +7,7 @@ import * as z from "zod";
 import { useState, type ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { UploadCloud, Loader2, Sparkles } from "lucide-react";
-import { addDoc, collection, serverTimestamp, doc, updateDoc } from "firebase/firestore"; // Added doc, updateDoc
+import { addDoc, collection, serverTimestamp, doc, updateDoc } from "firebase/firestore"; 
 
 import { Button } from "@/components/ui/button";
 import {
@@ -69,11 +69,11 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
-      type: "",
-      color: "",
-      season: "",
-      fabric: "",
+      name: itemToEdit?.name || "",
+      type: itemToEdit?.type || "",
+      color: itemToEdit?.color || "",
+      season: itemToEdit?.season || "",
+      fabric: itemToEdit?.fabric || "",
       image: undefined,
     },
   });
@@ -88,22 +88,22 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
         color: itemToEdit.color,
         season: itemToEdit.season,
         fabric: itemToEdit.fabric,
-        image: undefined, // Image is handled by previewUrl and selectedImage
+        image: undefined, 
       });
       if (itemToEdit.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL && itemToEdit.imageUrl.startsWith('data:image')) {
         setPreviewUrl(itemToEdit.imageUrl);
       } else {
-        setPreviewUrl(null); // Or set to placeholder if preferred for edit mode with no initial image
+        setPreviewUrl(null);
       }
-      setSelectedImage(null); // Reset selected file on mode change
-    } else {
+      setSelectedImage(null); 
+    } else { // mode === 'add'
       form.reset({
         name: "", type: "", color: "", season: "", fabric: "", image: undefined,
       });
       setPreviewUrl(null);
       setSelectedImage(null);
     }
-  }, [itemToEdit, mode, form]);
+  }, [itemToEdit, mode, form.reset]); // form.reset is stable
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -116,7 +116,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
           duration: 7000,
         });
         setSelectedImage(null);
-        setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl ? itemToEdit.imageUrl : null); // Revert to original or null
+        setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit.imageUrl : null); 
         form.setValue("image", undefined); 
         if (event.target) event.target.value = "";
         return;
@@ -134,7 +134,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
               duration: 9000,
             });
             setSelectedImage(null);
-            setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl ? itemToEdit.imageUrl : null); // Revert
+            setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit.imageUrl : null); // Revert
             form.setValue("image", undefined);
             if (event.target) event.target.value = "";
             return;
@@ -165,13 +165,12 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       form.setValue("fabric", result.fabric || form.getValues("fabric"));
       
       const currentName = form.getValues("name");
-      if (!currentName || mode === 'add') { // Only auto-set name in add mode or if name is empty
-        if (result.type && result.color) {
-          form.setValue("name", `${result.type} ${result.color}`);
-        } else if (result.type) {
-          form.setValue("name", result.type);
-        }
+      if ((!currentName || mode === 'add') && result.type && result.color) { 
+        form.setValue("name", `${result.type} ${result.color}`);
+      } else if ((!currentName || mode === 'add') && result.type) {
+        form.setValue("name", result.type);
       }
+
       toast({ title: "¡Autocompletado!", description: "Campos sugeridos por IA." });
     } catch (error) {
       console.error("Error autocompleting with AI:", error);
@@ -190,11 +189,11 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
     setIsSaving(true);
     let imageUrlToSave: string;
 
-    if (selectedImage && previewUrl) { // A new image was selected and processed
+    if (selectedImage && previewUrl) { 
       if (previewUrl.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
         toast({
           title: "Error al guardar: Imagen demasiado grande",
-          description: `La información de la nueva imagen es demasiado extensa. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`,
+          description: `La información de la nueva imagen es demasiado extensa para guardarla en Firestore. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`,
           variant: "destructive",
           duration: 9000,
         });
@@ -202,9 +201,12 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
         return;
       }
       imageUrlToSave = previewUrl;
-    } else if (mode === 'edit' && itemToEdit?.imageUrl) { // Editing and no new image, use existing
-      imageUrlToSave = itemToEdit.imageUrl;
-    } else { // Adding and no image, or editing and original was placeholder
+    } else if (mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl.startsWith('data:image')) { 
+      imageUrlToSave = itemToEdit.imageUrl; // Use existing Data URI if no new image
+    } else if (mode === 'edit' && itemToEdit?.imageUrl === PLACEHOLDER_IMAGE_URL && !selectedImage) {
+      imageUrlToSave = PLACEHOLDER_IMAGE_URL; // Keep placeholder if editing and no new image selected
+    }
+    else { 
       imageUrlToSave = PLACEHOLDER_IMAGE_URL;
     }
 
@@ -216,13 +218,12 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       season: values.season,
       fabric: values.fabric,
       imageUrl: imageUrlToSave,
-      // createdAt is only set on add, not updated on edit
     };
 
     try {
       if (mode === 'edit' && itemToEdit) {
         const itemRef = doc(db, "clothingItems", itemToEdit.id);
-        await updateDoc(itemRef, dataToSave); // Don't update createdAt for edits
+        await updateDoc(itemRef, { ...dataToSave, updatedAt: serverTimestamp() }); 
         toast({ title: "¡Prenda actualizada!", description: `${values.name} se ha actualizado en tu armario.` });
       } else {
         await addDoc(collection(db, "clothingItems"), {
@@ -232,7 +233,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
         toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
       }
 
-      form.reset();
+      form.reset({ name: "", type: "", color: "", season: "", fabric: "", image: undefined });
       setSelectedImage(null);
       setPreviewUrl(null);
       const imageUploadInput = document.getElementById('image-upload') as HTMLInputElement;
@@ -247,8 +248,8 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       if (error.code) detailedErrorMessage += ` Código: ${error.code}.`;
       else if (error.message) detailedErrorMessage += ` Mensaje: ${error.message}.`;
       
-      if (error.message?.toLowerCase().includes('document exceeds maximum size') || error.message?.toLowerCase().includes('payload is too large')) {
-          detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse. Intenta con una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`;
+      if (error.message?.toLowerCase().includes('document exceeds maximum size') || error.message?.toLowerCase().includes('payload is too large') || error.code === 'invalid-argument') {
+          detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse en Firestore (límite ~${MAX_FILE_SIZE_MB}MB por imagen). Intenta con una imagen más pequeña.`;
       } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
       }
@@ -258,7 +259,8 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
     }
   }
   
-  const currentPreviewImage = previewUrl || (mode === 'edit' && itemToEdit?.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit?.imageUrl : null);
+  const currentPreviewImage = previewUrl || (mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL && itemToEdit.imageUrl.startsWith('data:image') ? itemToEdit.imageUrl : null);
+
 
   return (
     <Form {...form}>
@@ -268,7 +270,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
           name="image"
           render={({ field }) => ( 
             <FormItem>
-              <FormLabel>Imagen de la Prenda (Max. ${MAX_FILE_SIZE_MB}MB)</FormLabel>
+              <FormLabel>Imagen de la Prenda (Max. ${MAX_FILE_SIZE_MB}MB para Base64 en Firestore)</FormLabel>
               <FormControl>
                 <div className="flex flex-col items-center space-y-4">
                   <label
@@ -295,7 +297,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
                       disabled={isSaving || isAutocompleting}
                     />
                   </label>
-                  {currentPreviewImage && ( // Show AI button if there's any preview (new or existing)
+                  {currentPreviewImage && ( 
                     <Button
                       type="button"
                       onClick={handleAIAutocomplete}
