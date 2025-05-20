@@ -1,3 +1,4 @@
+
 // src/ai/flows/suggest-outfit.ts
 'use server';
 
@@ -39,8 +40,9 @@ const SuggestOutfitOutputSchema = z.object({
         material: z.string().describe('The material of the clothing item.'),
       })
     )
-    .describe('An array of clothing items suggested for the outfit.'),
-  reasoning: z.string().describe('The reasoning behind the outfit suggestion.'),
+    .describe('An array of clothing items suggested for the outfit.')
+    .optional(), // Made optional
+  reasoning: z.string().describe('The reasoning behind the outfit suggestion.').optional(), // Made optional
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
 
@@ -78,3 +80,4 @@ const suggestOutfitFlow = ai.defineFlow(
     return output!;
   }
 );
+

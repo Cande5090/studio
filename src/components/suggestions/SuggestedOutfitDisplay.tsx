@@ -10,34 +10,58 @@ interface SuggestedOutfitDisplayProps {
 }
 
 export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayProps) {
-  if (!suggestion) {
-    return null;
+  if (!suggestion || (!suggestion.outfitSuggestion && !suggestion.reasoning)) {
+    return (
+      <Card className="mt-8 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl font-semibold">Sugerencia de Atuendo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            La IA está procesando tu solicitud o no pudo generar una sugerencia esta vez. Inténtalo de nuevo.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
+
+  const hasOutfitItems = suggestion.outfitSuggestion && suggestion.outfitSuggestion.length > 0;
 
   return (
     <Card className="mt-8 shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">Tu Atuendo Sugerido</CardTitle>
-        <CardDescription>Basado en tu armario y la ocasión especificada.</CardDescription>
+        {(hasOutfitItems || suggestion.reasoning) && (
+          <CardDescription>Basado en tu armario y la ocasión especificada.</CardDescription>
+        )}
+         {!hasOutfitItems && !suggestion.reasoning && (
+            <CardDescription>No se pudo generar una sugerencia detallada.</CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {suggestion.outfitSuggestion.map((item, index) => (
-            <div key={index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
-              <div className="relative w-full aspect-square rounded-md overflow-hidden">
+        {hasOutfitItems ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {suggestion.outfitSuggestion!.map((item, index) => ( // Safe to use ! due to hasOutfitItems check
+              <div key={index} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
+                <div className="relative w-full aspect-square rounded-md overflow-hidden">
                  <Image
-                    src={item.imageUrl || "https://placehold.co/200x200.png"} // Fallback placeholder
+                    src={item.imageUrl || "https://placehold.co/200x200.png"} 
                     alt={`${item.type} - ${item.color}`}
                     layout="fill"
                     objectFit="cover"
                     data-ai-hint="clothing item"
                   />
+                </div>
+                <p className="text-sm font-medium text-center truncate w-full" title={`${item.type} (${item.color})`}>{item.type}</p>
+                <p className="text-xs text-muted-foreground text-center">{item.color}</p>
               </div>
-              <p className="text-sm font-medium text-center truncate w-full" title={`${item.type} (${item.color})`}>{item.type}</p>
-              <p className="text-xs text-muted-foreground text-center">{item.color}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            La IA no especificó prendas para esta sugerencia.
+          </p>
+        )}
 
         {suggestion.reasoning && (
           <div className="space-y-2 pt-4 border-t">
@@ -54,3 +78,4 @@ export function SuggestedOutfitDisplay({ suggestion }: SuggestedOutfitDisplayPro
     </Card>
   );
 }
+
