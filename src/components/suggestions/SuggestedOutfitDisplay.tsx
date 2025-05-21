@@ -37,43 +37,47 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
         {hasOutfitItems ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {suggestion.outfitSuggestion!.map((suggestedItem, index) => {
-              const originalItem = suggestedItem.id ? wardrobeMap.get(suggestedItem.id) : undefined;
+              // Asegurarse de que suggestedItem y suggestedItem.id existen
+              const originalItemId = suggestedItem?.id;
+              const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
+              // Determinar el tipo y color a mostrar
+              // Prioridad: IA -> Prenda Original -> "Prenda" / ""
               const displayType = suggestedItem.type || originalItem?.type || "Prenda";
               const displayColor = suggestedItem.color || originalItem?.color || "";
               
-              let displayImageUrl = "https://placehold.co/200x250.png?text=Prenda";
+              let displayImageUrl = "https://placehold.co/200x250.png?text=No+Disp.";
               let aiHint = "clothing item";
 
               if (originalItem?.imageUrl) {
-                if (originalItem.imageUrl.startsWith('data:image')) {
+                // Solo usar Data URIs o URLs de placehold.co válidas
+                if (originalItem.imageUrl.startsWith('data:image') || originalItem.imageUrl.startsWith('https://placehold.co')) {
                   displayImageUrl = originalItem.imageUrl;
-                } else if (originalItem.imageUrl !== "https://placehold.co/300x300.png?text=Prenda") {
-                  // If it's not a data URI and not the generic placeholder, it might be another specific placeholder
-                  // or an external URL. For safety, and given we moved to Data URIs,
-                  // we'll only use it if it's a Data URI. Otherwise, fallback.
-                  // This part could be refined if other valid URL types are expected.
-                  displayImageUrl = "https://placehold.co/200x250.png?text=Revisar+URL";
                 }
-                 // If originalItem.imageUrl IS the generic placeholder, displayImageUrl remains the default small placeholder
+                // Actualizar aiHint basado en el tipo real de la prenda si está disponible
+                if (originalItem.type && originalItem.type.toLowerCase() !== "otro") {
+                    aiHint = originalItem.type.split(' ')[0].toLowerCase();
+                }
+              } else if (suggestedItem.id) { // Si no hay originalItem.imageUrl pero sí un ID, quizás algo salió mal al buscarla
+                displayImageUrl = "https://placehold.co/200x250.png?text=ID:"+suggestedItem.id.substring(0,4);
               }
 
 
-              const itemName = `${displayType} ${displayColor}`.trim() || "Prenda";
-              const altText = itemName;
-              const titleText = itemName;
+              const itemName = `${displayType} ${displayColor}`.trim() || (originalItem ? `${originalItem.type} ${originalItem.color}`.trim() : "Prenda");
+              const altText = itemName || `Prenda sugerida ${index + 1}`;
+              const titleText = itemName || `Prenda sugerida ${index + 1}`;
               
               return (
-                <div key={originalItem?.id || `suggested-${index}-${suggestedItem.color}`} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
+                <div key={originalItemId || `suggested-placeholder-${index}`} className="flex flex-col items-center space-y-2 p-2 border rounded-lg bg-muted/30">
                   <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
                    <Image
                       src={displayImageUrl}
                       alt={altText}
                       layout="fill"
                       objectFit="cover"
-                      data-ai-hint={aiHint.split(' ')[0]} // Use first word of type for hint
+                      data-ai-hint={aiHint} 
                       onError={(e) => {
-                        e.currentTarget.src = "https://placehold.co/200x250.png?text=Error";
+                        e.currentTarget.src = "https://placehold.co/200x250.png?text=ErrorImg";
                         e.currentTarget.alt = "Error al cargar imagen";
                       }}
                     />
