@@ -3,16 +3,21 @@
 
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
-import { Loader2, Sparkles } from "lucide-react"; 
+import { Loader2, Sparkles, RotateCw } from "lucide-react"; 
 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClothingItem } from "@/types";
-import type { SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
+import type { SuggestOutfitInput, SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
+import { suggestOutfit } from "@/ai/flows/suggest-outfit";
 import { SuggestOutfitForm } from "@/components/suggestions/SuggestOutfitForm";
 import { SuggestedOutfitDisplay } from "@/components/suggestions/SuggestedOutfitDisplay";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+
+const MAX_WARDROBE_ITEMS_FOR_AI = 50;
+const AI_SUGGESTION_TIMEOUT_MS = 90000; // 90 segundos
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
@@ -21,6 +26,7 @@ export default function SuggestionsPage() {
   const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [lastOccasion, setLastOccasion] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -28,7 +34,7 @@ export default function SuggestionsPage() {
       const q = query(
         collection(db, "clothingItems"),
         where("userId", "==", user.uid),
-        orderBy("createdAt", "desc") // Para que el form pueda priorizar recientes
+        orderBy("createdAt", "desc")
       );
       
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -60,6 +66,64 @@ export default function SuggestionsPage() {
     }
   }, [user, toast]);
 
+  const performSuggestion = async (occasion: string) => {
+    if (wardrobe.length === 0) {
+      toast({ title: "Armario vacío", description: "Añade prendas a tu armario antes de pedir sugerencias.", variant: "destructive" });
+      return;
+    }
+
+    setIsSuggesting(true);
+    setSuggestion(null); 
+    setLastOccasion(occasion);
+
+    try {
+      const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const limitedWardrobe = sortedWardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
+      
+      const wardrobeForAI = limitedWardrobe.map(item => ({
+        id: item.id, 
+        type: item.type,
+        color: item.color,
+        season: item.season,
+        material: item.fabric,
+      }));
+
+      if (wardrobe.length > MAX_WARDROBE_ITEMS_FOR_AI) {
+        toast({
+          title: "Nota sobre el armario",
+          description: `Para optimizar la sugerencia, se consideraron tus ${MAX_WARDROBE_ITEMS_FOR_AI} prendas más recientes.`,
+          duration: 7000,
+        });
+      }
+
+      const input: SuggestOutfitInput = {
+        occasion: occasion,
+        wardrobe: wardrobeForAI,
+      };
+      
+      const suggestionPromise = suggestOutfit(input);
+      const timeoutPromise = new Promise<SuggestOutfitOutput>((_, reject) =>
+        setTimeout(() => reject(new Error("La sugerencia de la IA ha tardado demasiado.")), AI_SUGGESTION_TIMEOUT_MS)
+      );
+
+      const result = await Promise.race([suggestionPromise, timeoutPromise]);
+      setSuggestion(result);
+
+    } catch (error: any) {
+      console.error("Error sugiriendo atuendo:", error);
+      let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
+      if (error.message === "La sugerencia de la IA ha tardado demasiado.") {
+        errorMessage = "La IA tardó demasiado en responder. Por favor, inténtalo de nuevo más tarde.";
+      } else if (error.message && error.message.includes("INVALID_ARGUMENT")) {
+        errorMessage = "Hubo un problema con los datos enviados o recibidos de la IA. Revisa la consola.";
+      }
+      toast({ title: "Error de IA", description: errorMessage, variant: "destructive" });
+      setSuggestion(null);
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
   if (isLoadingWardrobe) {
     return (
       <div className="container mx-auto py-8 space-y-6">
@@ -81,9 +145,8 @@ export default function SuggestionsPage() {
       
       <SuggestOutfitForm
         wardrobe={wardrobe}
-        onSuggestionReceived={setSuggestion}
+        onSuggest={performSuggestion} // Cambiado para pasar la función completa
         isSuggesting={isSuggesting}
-        setIsSuggesting={setIsSuggesting}
       />
 
       {isSuggesting && (
@@ -95,7 +158,21 @@ export default function SuggestionsPage() {
       )}
       
       {!isSuggesting && suggestion && (
-        <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} />
+        <div className="mt-8">
+          <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} />
+          {lastOccasion && (
+            <div className="mt-6 text-center">
+              <Button 
+                onClick={() => performSuggestion(lastOccasion)} 
+                disabled={isSuggesting}
+                variant="outline"
+              >
+                <RotateCw className="mr-2 h-4 w-4" />
+                Generar Otra Sugerencia para "{lastOccasion}"
+              </Button>
+            </div>
+          )}
+        </div>
       )}
 
       {!isSuggesting && !suggestion && wardrobe.length > 0 && (

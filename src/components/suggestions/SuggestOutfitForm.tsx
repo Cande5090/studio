@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
-import { suggestOutfit } from "@/ai/flows/suggest-outfit";
-import type { SuggestOutfitInput, SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
-import type { ClothingItem, WardrobeItemForAI } from "@/types";
+import type { ClothingItem } from "@/types";
 
 const formSchema = z.object({
   occasion: z.string().min(3, { message: "La ocasión debe tener al menos 3 caracteres." }).max(50, { message: "La ocasión no puede exceder los 50 caracteres." }),
@@ -27,17 +25,11 @@ const formSchema = z.object({
 
 interface SuggestOutfitFormProps {
   wardrobe: ClothingItem[];
-  onSuggestionReceived: (suggestion: SuggestOutfitOutput | null) => void;
-  setIsSuggesting: (isSuggesting: boolean) => void;
-  isSuggesting: boolean;
+  onSuggest: (occasion: string) => Promise<void>; // Cambiado
+  isSuggesting: boolean; // Controlado por el padre
 }
 
-const MAX_WARDROBE_ITEMS_FOR_AI = 50; 
-const AI_SUGGESTION_TIMEOUT_MS = 90000; // 90 segundos
-
-export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggesting, isSuggesting }: SuggestOutfitFormProps) {
-  const { toast } = useToast();
-
+export function SuggestOutfitForm({ wardrobe, onSuggest, isSuggesting }: SuggestOutfitFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -45,62 +37,11 @@ export function SuggestOutfitForm({ wardrobe, onSuggestionReceived, setIsSuggest
     },
   });
 
+  // El estado isSuggesting ahora es manejado por la página padre.
+  // El onSuggestionReceived también es manejado por la página padre a través de onSuggest.
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (wardrobe.length === 0) {
-      toast({ title: "Armario vacío", description: "Añade prendas a tu armario antes de pedir sugerencias.", variant: "destructive" });
-      return;
-    }
-
-    setIsSuggesting(true);
-    onSuggestionReceived(null); 
-
-    try {
-      // Ordenar por fecha de creación descendente (más recientes primero) y limitar
-      const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-      const limitedWardrobe = sortedWardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
-      
-      const wardrobeForAI: WardrobeItemForAI[] = limitedWardrobe.map(item => ({
-        id: item.id, 
-        type: item.type,
-        color: item.color,
-        season: item.season,
-        material: item.fabric, // 'fabric' en ClothingItem se mapea a 'material' para la IA
-      }));
-
-      if (wardrobe.length > MAX_WARDROBE_ITEMS_FOR_AI) {
-        toast({
-          title: "Nota sobre el armario",
-          description: `Para optimizar la sugerencia, se consideraron tus ${MAX_WARDROBE_ITEMS_FOR_AI} prendas más recientes.`,
-          duration: 7000,
-        });
-      }
-
-      const input: SuggestOutfitInput = {
-        occasion: values.occasion,
-        wardrobe: wardrobeForAI,
-      };
-      
-      const suggestionPromise = suggestOutfit(input);
-      const timeoutPromise = new Promise<SuggestOutfitOutput>((_, reject) =>
-        setTimeout(() => reject(new Error("La sugerencia de la IA ha tardado demasiado.")), AI_SUGGESTION_TIMEOUT_MS)
-      );
-
-      const result = await Promise.race([suggestionPromise, timeoutPromise]);
-      onSuggestionReceived(result);
-
-    } catch (error: any) {
-      console.error("Error sugiriendo atuendo:", error);
-      let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
-      if (error.message === "La sugerencia de la IA ha tardado demasiado.") {
-        errorMessage = "La IA tardó demasiado en responder. Por favor, inténtalo de nuevo más tarde.";
-      } else if (error.message && error.message.includes("INVALID_ARGUMENT")) {
-        errorMessage = "Hubo un problema con los datos enviados o recibidos de la IA. Revisa la consola.";
-      }
-      toast({ title: "Error de IA", description: errorMessage, variant: "destructive" });
-      onSuggestionReceived(null);
-    } finally {
-      setIsSuggesting(false);
-    }
+    await onSuggest(values.occasion);
   }
 
   return (
