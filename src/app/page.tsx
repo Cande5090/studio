@@ -91,12 +91,12 @@ export default function HomePage() {
               </div>
               <div className="relative aspect-[5/7] w-full">
                 <Image
-                  src="https://placehold.co/500x700.png"
-                  alt="Modelo de Outfitly mostrando la aplicación en un dispositivo"
+                  src="https://storage.googleapis.com/projectx-dev-images/idx-assets/7a8944f5-97f8-4f2b-9107-09138fc990b2.png"
+                  alt="Modelo de Outfitly con un conjunto elegante de vestido y saco color claro"
                   layout="fill"
                   objectFit="cover"
                   className="rounded-md"
-                  data-ai-hint="fashion app mockup"
+                  data-ai-hint="woman elegant outfit"
                   priority
                 />
               </div>
