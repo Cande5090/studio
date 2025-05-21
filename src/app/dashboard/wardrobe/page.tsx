@@ -37,8 +37,33 @@ const ShirtIconSvg = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// Options for filters - should align with AddClothingItemForm options
-const clothingCategories = ["Todas las Categorías", "Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "Jersey", "Zapatos", "Accesorio", "Otro"];
+// Nuevas categorías más amplias para el filtro de Guardarropa
+const wardrobeFilterCategories = [
+  "Todas las Categorías",
+  "Prendas superiores",
+  "Prendas inferiores",
+  "Entero",
+  "Abrigos",
+  "Zapatos",
+  "Accesorios",
+  "Otros",
+];
+
+// Mapeo de categorías amplias a tipos de prendas individuales
+const categoryToTypesMap: Record<string, string[]> = {
+  "Prendas superiores": ["Camisa", "Jersey"],
+  "Prendas inferiores": ["Pantalón", "Falda"],
+  "Entero": ["Vestido"], // Puedes añadir más si los tienes, ej: "Mono"
+  "Abrigos": ["Chaqueta"],
+  "Zapatos": ["Zapatos"],
+  "Accesorios": ["Accesorio"],
+  // "Otros" no necesita mapeo aquí, se manejará por exclusión
+};
+
+// Tipos de prendas individuales que NO deben ser agrupados en "Otros" si ya tienen categoría
+const allSpecificMappedTypes = Object.values(categoryToTypesMap).flat();
+
+
 const clothingSeasons = ["Todas las Temporadas", "Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 
 
@@ -53,7 +78,7 @@ export default function WardrobePage() {
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>(clothingCategories[0]);
+  const [selectedCategory, setSelectedCategory] = useState<string>(wardrobeFilterCategories[0]);
   const [selectedSeason, setSelectedSeason] = useState<string>(clothingSeasons[0]);
 
 
@@ -101,9 +126,18 @@ export default function WardrobePage() {
       );
     }
 
-    // Filter by selectedCategory
-    if (selectedCategory !== clothingCategories[0]) { // Not "Todas las Categorías"
-      processedItems = processedItems.filter(item => item.type === selectedCategory);
+    // Filter by selectedCategory (nueva lógica para categorías amplias)
+    if (selectedCategory !== wardrobeFilterCategories[0]) { // No "Todas las Categorías"
+      if (selectedCategory === "Otros") {
+        processedItems = processedItems.filter(item => 
+            !allSpecificMappedTypes.includes(item.type) || item.type === "Otro"
+        );
+      } else {
+        const specificTypesForCategory = categoryToTypesMap[selectedCategory];
+        if (specificTypesForCategory) {
+          processedItems = processedItems.filter(item => specificTypesForCategory.includes(item.type));
+        }
+      }
     }
 
     // Filter by selectedSeason
@@ -111,7 +145,6 @@ export default function WardrobePage() {
       processedItems = processedItems.filter(item => item.season === selectedSeason);
     }
     
-    // Default sort is by createdAt desc (from Firestore query)
     return processedItems;
   }, [allClothingItems, searchTerm, selectedCategory, selectedSeason]);
 
@@ -179,7 +212,7 @@ export default function WardrobePage() {
                 <SelectValue placeholder="Categoría" />
               </SelectTrigger>
               <SelectContent>
-                {clothingCategories.map((category) => (
+                {wardrobeFilterCategories.map((category) => (
                   <SelectItem key={category} value={category}>{category}</SelectItem>
                 ))}
               </SelectContent>
@@ -274,3 +307,5 @@ function CardSkeleton() {
   );
 }
 
+
+    
