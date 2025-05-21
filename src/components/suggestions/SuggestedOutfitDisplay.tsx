@@ -6,7 +6,7 @@ import type { ClothingItem } from "@/types";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquareText, Shirt, Save, Loader2 } from "lucide-react"; // Added Save and Loader2
+import { MessageSquareText, Shirt, Save, Loader2, RotateCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +30,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 interface SuggestedOutfitDisplayProps {
   suggestion: SuggestOutfitOutput | null;
   wardrobe: ClothingItem[];
-  occasion?: string | null; // Added occasion to prefill saved outfit name
+  occasion?: string | null;
 }
 
 export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: SuggestedOutfitDisplayProps) {
@@ -105,23 +105,22 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
               const originalItemId = suggestedItem?.id;
               const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
-              let displayType = originalItem?.type || suggestedItem.type || "Prenda";
-              let displayColor = originalItem?.color || suggestedItem.color || "";
-              let displayName = `${displayType} ${displayColor}`.trim();
-              if (!displayName && originalItem?.name) {
-                displayName = originalItem.name;
-              } else if (!displayName) {
-                displayName = "Prenda";
+              let displayName = originalItem?.name; // Priorizar el nombre original de la prenda
+              if (!displayName) {
+                // Fallback si no se encuentra el nombre original (lo cual no debería pasar si el ID es correcto),
+                // se intenta con tipo y color si la IA los proveyó.
+                const typeFromAI = suggestedItem.type || "";
+                const colorFromAI = suggestedItem.color || "";
+                displayName = `${typeFromAI} ${colorFromAI}`.trim() || "Prenda";
               }
               
-              let displayImageUrl = "https://placehold.co/200x250.png?text=No+Disp.";
+              let displayImageUrl = originalItem?.imageUrl || "https://placehold.co/200x250.png?text=No+Disp.";
               let aiHint = "clothing item";
 
-              if (originalItem?.imageUrl && (originalItem.imageUrl.startsWith('data:image') || originalItem.imageUrl.startsWith('https://placehold.co'))) {
-                displayImageUrl = originalItem.imageUrl;
-              }
               if (originalItem?.type && originalItem.type.toLowerCase() !== "otro") {
                 aiHint = originalItem.type.split(' ')[0].toLowerCase();
+              } else if (suggestedItem.type) {
+                aiHint = suggestedItem.type.split(' ')[0].toLowerCase();
               }
               
               return (

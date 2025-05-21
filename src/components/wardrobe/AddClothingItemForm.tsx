@@ -33,7 +33,6 @@ import { autocompleteClothingDetails } from "@/ai/flows/autocomplete-clothing-de
 import type { AutocompleteClothingDetailsOutput } from "@/ai/flows/autocomplete-clothing-details";
 import type { ClothingItem } from "@/types";
 
-// Nuevas categorías amplias para el tipo de prenda
 const clothingCategoriesAsTypes = ["Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"];
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 const fabrics = ["Algodón", "Lana", "Seda", "Lino", "Poliéster", "Cuero", "Denim", "Otro"];
@@ -112,9 +111,9 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({
           title: "Archivo demasiado grande",
-          description: `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB. Esto es para asegurar que la información de la imagen pueda guardarse correctamente. Intenta con una imagen más pequeña.`,
+          description: `La imagen no debe exceder los ${MAX_FILE_SIZE_MB}MB. Esto es para asegurar que la información de la imagen pueda guardarse directamente en la base de datos. Intenta con una imagen más pequeña.`,
           variant: "destructive",
-          duration: 7000,
+          duration: 9000,
         });
         setSelectedImage(null);
         setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit.imageUrl : null); 
@@ -129,10 +128,10 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
         const result = reader.result as string;
         if (result.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
             toast({
-              title: "Imagen demasiado compleja",
-              description: `Después de procesar, la información de la imagen es demasiado grande para guardarla directamente. Intenta con una imagen más simple o de menor resolución (menos de ${MAX_FILE_SIZE_MB}MB).`,
+              title: "Imagen demasiado compleja para Data URI",
+              description: `Después de procesar, la información de la imagen (Data URI) es demasiado grande para guardarla directamente en Firestore (límite ~1MB por documento). Intenta con una imagen más simple o de menor resolución (original < ${MAX_FILE_SIZE_MB}MB).`,
               variant: "destructive",
-              duration: 9000,
+              duration: 10000,
             });
             setSelectedImage(null);
             setPreviewUrl(mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL ? itemToEdit.imageUrl : null); // Revert
@@ -155,6 +154,15 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
     try {
       const result: AutocompleteClothingDetailsOutput = await autocompleteClothingDetails({ photoDataUri: previewUrl });
       
+      const currentName = form.getValues("name");
+      if ((!currentName || mode === 'add') && result.name) {
+        form.setValue("name", result.name);
+      } else if (!currentName && result.type && result.color) {
+        form.setValue("name", `${result.type} ${result.color}`);
+      } else if (!currentName && result.type) {
+        form.setValue("name", result.type);
+      }
+      
       let suggestedSeason = result.season || "";
       if (!seasons.includes(suggestedSeason)) {
         suggestedSeason = "Todo el año"; 
@@ -164,20 +172,12 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       if(clothingCategoriesAsTypes.includes(suggestedType)){
         form.setValue("type", suggestedType);
       } else if(form.getValues("type") === ""){
-         // Si la IA no devuelve un tipo válido y el campo está vacío, no lo llenamos,
-         // o podríamos poner "Otros" si fuera un requisito.
+         form.setValue("type", "Otros"); // Fallback si la IA no da un tipo válido y está vacío
       }
       
       form.setValue("color", result.color || form.getValues("color"));
       form.setValue("season", suggestedSeason);
       form.setValue("fabric", result.fabric || form.getValues("fabric"));
-      
-      const currentName = form.getValues("name");
-      if ((!currentName || mode === 'add') && suggestedType && result.color) { 
-        form.setValue("name", `${suggestedType} ${result.color}`);
-      } else if ((!currentName || mode === 'add') && suggestedType) {
-        form.setValue("name", suggestedType);
-      }
 
       toast({ title: "¡Autocompletado!", description: "Campos sugeridos por IA." });
     } catch (error) {
@@ -200,16 +200,16 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
     if (selectedImage && previewUrl && previewUrl.startsWith('data:image')) { 
       if (previewUrl.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
         toast({
-          title: "Error al guardar: Imagen demasiado grande",
-          description: `La información de la nueva imagen es demasiado extensa para guardarla en Firestore. Selecciona una imagen más pequeña (menos de ${MAX_FILE_SIZE_MB}MB).`,
+          title: "Error al guardar: Imagen (Data URI) demasiado grande",
+          description: `La información de la nueva imagen es demasiado extensa para guardarla en Firestore (límite ~1MB por documento). Selecciona una imagen más pequeña (original < ${MAX_FILE_SIZE_MB}MB).`,
           variant: "destructive",
-          duration: 9000,
+          duration: 10000,
         });
         setIsSaving(false);
         return;
       }
       imageUrlToSave = previewUrl;
-    } else if (mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl.startsWith('data:image')) { 
+    } else if (mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl !== PLACEHOLDER_IMAGE_URL && itemToEdit.imageUrl.startsWith('data:image')) { 
       imageUrlToSave = itemToEdit.imageUrl; 
     } else if (mode === 'edit' && itemToEdit?.imageUrl === PLACEHOLDER_IMAGE_URL && !selectedImage) {
       imageUrlToSave = PLACEHOLDER_IMAGE_URL; 
@@ -232,13 +232,13 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       if (mode === 'edit' && itemToEdit) {
         const itemRef = doc(db, "clothingItems", itemToEdit.id);
         await updateDoc(itemRef, { ...dataToSave, updatedAt: serverTimestamp() }); 
-        toast({ title: "¡Prenda actualizada!", description: `${values.name} se ha actualizado en tu armario.` });
+        toast({ title: "¡Prenda actualizada!", description: `"${values.name}" se ha actualizado en tu armario.` });
       } else {
         await addDoc(collection(db, "clothingItems"), {
           ...dataToSave,
           createdAt: serverTimestamp(),
         });
-        toast({ title: "¡Prenda añadida!", description: `${values.name} se ha añadido a tu armario.` });
+        toast({ title: "¡Prenda añadida!", description: `"${values.name}" se ha añadido a tu armario.` });
       }
 
       form.reset({ name: "", type: "", color: "", season: "", fabric: "", image: undefined });
@@ -257,7 +257,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       else if (error.message) detailedErrorMessage += ` Mensaje: ${error.message}.`;
       
       if (error.message?.toLowerCase().includes('document exceeds maximum size') || error.message?.toLowerCase().includes('payload is too large') || error.code === 'invalid-argument') {
-          detailedErrorMessage = `Error: La prenda con la imagen es demasiado grande para guardarse en Firestore (límite ~${MAX_FILE_SIZE_MB}MB por imagen). Intenta con una imagen más pequeña.`;
+          detailedErrorMessage = `Error: La prenda con la imagen (Data URI) es demasiado grande para guardarse en Firestore (límite ~${MAX_FILE_SIZE_MB}MB por imagen). Intenta con una imagen más pequeña.`;
       } else if (error.code === 'permission-denied' && error.message?.toLowerCase().includes('firestore')) {
          detailedErrorMessage = "Error de permisos al guardar en la base de datos. Asegúrate de que las reglas de Firestore son correctas y estás autenticado. Revisa la consola (F12).";
       }

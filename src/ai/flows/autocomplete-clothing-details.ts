@@ -25,6 +25,7 @@ export type AutocompleteClothingDetailsInput = z.infer<
 >;
 
 const AutocompleteClothingDetailsOutputSchema = z.object({
+  name: z.string().describe('Un nombre descriptivo y específico para la prenda (ej. Camisa de lino a rayas, Pantalón vaquero desgastado, Zapatillas urbanas blancas).'),
   type: z.string().describe('La categoría general de la prenda (ej. Prendas superiores, Prendas inferiores, Entero, Abrigos, Zapatos, Accesorios, Otros). Trata de ser específico dentro de estas categorías si es posible, pero el valor DEBE ser uno de estos.'),
   color: z.string().describe('El color principal de la prenda (ej. Azul marino, Rojo vibrante, Estampado floral).'),
   season: z.string().describe('La temporada o estación para la que es más adecuada la prenda. Debe ser uno de: Primavera, Verano, Otoño, Invierno, Para todo el año.'),
@@ -46,14 +47,15 @@ const autocompleteClothingDetailsPrompt = ai.definePrompt({
   output: {schema: AutocompleteClothingDetailsOutputSchema},
   prompt: `Eres un asistente de IA experto en analizar imágenes de prendas de vestir y sugerir detalles sobre ellas. Todas tus respuestas deben ser en ESPAÑOL.
 
-Tu tarea es analizar la siguiente imagen y proporcionar la siguiente información para los CUATRO campos siguientes:
-1.  **Tipo**: La categoría general de la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"**. No inventes otros valores.
-2.  **Color**: El color predominante de la prenda (ej. Azul marino, Rojo vibrante, Blanco, Negro, Beige, Estampado floral).
-3.  **Temporada**: La temporada o estación para la que es más adecuada la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año"**. No inventes otros valores.
-4.  **Tejido**: El tejido principal de la prenda (ej. Algodón, Seda, Poliéster, Lino, Lana, Denim, Cuero Sintético).
+Tu tarea es analizar la siguiente imagen y proporcionar la siguiente información para los CINCO campos siguientes:
+1.  **Nombre**: Un nombre descriptivo y específico para la prenda basado en su apariencia (ej. Camisa de lino a rayas, Pantalón vaquero desgastado, Zapatillas urbanas blancas).
+2.  **Tipo**: La categoría general de la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"**. No inventes otros valores.
+3.  **Color**: El color predominante de la prenda (ej. Azul marino, Rojo vibrante, Blanco, Negro, Beige, Estampado floral).
+4.  **Temporada**: La temporada o estación para la que es más adecuada la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año"**. No inventes otros valores.
+5.  **Tejido**: El tejido principal de la prenda (ej. Algodón, Seda, Poliéster, Lino, Lana, Denim, Cuero Sintético).
 
-**NO OMITAS NINGÚN CAMPO. Proporciona un valor para tipo, color, temporada y tejido.**
-Asegúrate de que tu respuesta incluya los cuatro campos y que los campos 'tipo' y 'temporada' sean estrictamente uno de los valores listados anteriormente.
+**NO OMITAS NINGÚN CAMPO. Proporciona un valor para nombre, tipo, color, temporada y tejido.**
+Asegúrate de que tu respuesta incluya los cinco campos y que los campos 'tipo' y 'temporada' sean estrictamente uno de los valores listados anteriormente.
 
 Imagen: {{media url=photoDataUri}}
 
