@@ -45,7 +45,7 @@ const SuggestOutfitOutputSchema = z.object({
   outfitSuggestion: z
     .array(SuggestedItemSchema)
     .describe("Un array de prendas seleccionadas del armario del usuario. Cada prenda DEBE incluir su 'id' original. Otros campos como 'type', 'color' son útiles si se devuelven.")
-    .optional(), // Opcional para manejar casos donde no se puede sugerir nada
+    .optional(), 
   reasoning: z.string().describe('El razonamiento detrás de la sugerencia del atuendo. Este campo es obligatorio, incluso si no se sugiere ningún atuendo o si faltan prendas.'),
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
@@ -58,8 +58,12 @@ const prompt = ai.definePrompt({
   name: 'suggestOutfitPrompt',
   input: {schema: SuggestOutfitInputSchema},
   output: {schema: SuggestOutfitOutputSchema},
+  config: {
+    temperature: 0.9, // Aumentar la temperatura para más variabilidad
+  },
   prompt: `Eres un estilista de moda experto y muy detallista. Tu idioma principal es ESPAÑOL.
-Tu tarea es analizar el armario del usuario y la ocasión proporcionada para sugerir un ATUENDO COMPLETO Y COHERENTE.
+Tu tarea es analizar el armario del usuario y la ocasión proporcionada para sugerir un ATUENDO COMPLETO Y COHERENTE. Intenta ser creativo y ofrecer variedad si se te pide la misma ocasión múltiples veces.
+
 Un atuendo completo generalmente consiste en:
 1.  Una prenda superior (ej. camisa, blusa, jersey).
 2.  Una prenda inferior (ej. pantalón, falda).
