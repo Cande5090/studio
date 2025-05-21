@@ -3,11 +3,34 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
-import { LogIn, UserPlus } from 'lucide-react';
+import { LogIn, UserPlus, Loader2 } from 'lucide-react'; // Added Loader2
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard/wardrobe');
+    }
+  }, [user, loading, router]);
+
+  if (loading || (!loading && user)) {
+    // Show a loading state or nothing while checking auth or redirecting
+    return (
+      <div className="flex flex-col min-h-screen bg-background text-foreground font-sans items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
+
+  // If not loading and no user, show the landing page
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
@@ -45,13 +68,6 @@ export default function HomePage() {
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-primary pt-4" style={{ fontFamily: 'var(--font-geist-sans), Georgia, serif' }}>
               Todo en un solo lugar
             </h2>
-             {/* Optional CTA for future
-            <Button size="lg" asChild className="mt-6 !bg-accent hover:!bg-accent/90 !text-accent-foreground">
-              <Link href="/register">
-                Comienza Ahora
-              </Link>
-            </Button>
-            */}
           </div>
 
           {/* Right Column: Image */}
