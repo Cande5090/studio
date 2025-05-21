@@ -74,7 +74,7 @@ export default function SuggestionsPage() {
 
     setIsSuggesting(true);
     setSuggestion(null); 
-    setLastOccasion(occasion);
+    setLastOccasion(occasion); // Guardar la ocasión actual
 
     try {
       const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -85,7 +85,7 @@ export default function SuggestionsPage() {
         type: item.type,
         color: item.color,
         season: item.season,
-        material: item.fabric,
+        material: item.fabric, // Asegúrate de que esto coincida con WardrobeItemForAI
       }));
 
       if (wardrobe.length > MAX_WARDROBE_ITEMS_FOR_AI) {
@@ -145,7 +145,7 @@ export default function SuggestionsPage() {
       
       <SuggestOutfitForm
         wardrobe={wardrobe}
-        onSuggest={performSuggestion} // Cambiado para pasar la función completa
+        onSuggest={performSuggestion} 
         isSuggesting={isSuggesting}
       />
 
@@ -159,8 +159,8 @@ export default function SuggestionsPage() {
       
       {!isSuggesting && suggestion && (
         <div className="mt-8">
-          <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} />
-          {lastOccasion && (
+          <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} occasion={lastOccasion} />
+          {lastOccasion && ( // Solo mostrar si hay una última ocasión
             <div className="mt-6 text-center">
               <Button 
                 onClick={() => performSuggestion(lastOccasion)} 
