@@ -15,13 +15,14 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Si el AuthContext ya determinó el estado y hay un usuario, redirige.
+    // Si el AuthContext ya determinó el estado (no está cargando) Y hay un usuario,
+    // entonces redirige al dashboard.
     if (!loading && user) {
       router.push('/dashboard/wardrobe');
     }
   }, [user, loading, router]);
 
-  // Muestra un loader mientras el AuthContext está cargando inicialmente.
+  // 1. Muestra un loader mientras AuthContext está cargando inicialmente.
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground font-sans items-center justify-center">
@@ -31,10 +32,10 @@ export default function HomePage() {
     );
   }
 
-  // Si AuthContext ya cargó (loading es false) y hay un usuario,
+  // 2. Si AuthContext ya cargó (loading es false) Y hay un usuario,
   // significa que el useEffect de arriba está (o estará pronto) redirigiendo.
   // Muestra un loader indicando la redirección.
-  if (user) {
+  if (user) { // Solo necesitamos chequear 'user' aquí, porque 'loading' ya es false
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground font-sans items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -43,7 +44,7 @@ export default function HomePage() {
     );
   }
 
-  // Si no está cargando y no hay usuario, muestra la página de inicio.
+  // 3. Si no está cargando Y NO hay usuario, muestra la página de inicio.
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
@@ -92,7 +93,7 @@ export default function HomePage() {
               <div className="relative aspect-[5/7] w-full">
                 <Image
                   src="https://storage.googleapis.com/projectx-dev-images/idx-assets/7a8944f5-97f8-4f2b-9107-09138fc990b2.png"
-                  alt="Modelo de Outfitly con un conjunto elegante de vestido y saco color claro"
+                  alt="Modelo de Outfitly presentando un elegante conjunto de vestido y saco color claro"
                   layout="fill"
                   objectFit="cover"
                   className="rounded-md"
