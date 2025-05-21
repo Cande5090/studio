@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
-import { LogIn, UserPlus, Loader2 } from 'lucide-react'; // Added Loader2
+import { LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomePage() {
@@ -15,13 +15,14 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Si el AuthContext ya determinó el estado y hay un usuario, redirige.
     if (!loading && user) {
       router.push('/dashboard/wardrobe');
     }
   }, [user, loading, router]);
 
-  if (loading || (!loading && user)) {
-    // Show a loading state or nothing while checking auth or redirecting
+  // Muestra un loader mientras el AuthContext está cargando inicialmente.
+  if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground font-sans items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -30,7 +31,19 @@ export default function HomePage() {
     );
   }
 
-  // If not loading and no user, show the landing page
+  // Si AuthContext ya cargó (loading es false) y hay un usuario,
+  // significa que el useEffect de arriba está (o estará pronto) redirigiendo.
+  // Muestra un loader indicando la redirección.
+  if (user) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background text-foreground font-sans items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
+      </div>
+    );
+  }
+
+  // Si no está cargando y no hay usuario, muestra la página de inicio.
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
