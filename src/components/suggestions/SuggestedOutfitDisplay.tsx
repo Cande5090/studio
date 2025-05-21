@@ -42,28 +42,34 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe }: SuggestedOutfit
               const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
               // Determinar el tipo y color a mostrar
-              // Prioridad: IA -> Prenda Original -> "Prenda" / ""
-              const displayType = suggestedItem.type || originalItem?.type || "Prenda";
-              const displayColor = suggestedItem.color || originalItem?.color || "";
+              // Prioridad: Prenda Original -> IA -> "Prenda" / ""
+              let displayType = originalItem?.type || suggestedItem.type || "Prenda";
+              let displayColor = originalItem?.color || suggestedItem.color || "";
               
               let displayImageUrl = "https://placehold.co/200x250.png?text=No+Disp.";
               let aiHint = "clothing item";
 
-              if (originalItem?.imageUrl) {
+              if (originalItem) {
                 // Solo usar Data URIs o URLs de placehold.co válidas
-                if (originalItem.imageUrl.startsWith('data:image') || originalItem.imageUrl.startsWith('https://placehold.co')) {
+                if (originalItem.imageUrl && (originalItem.imageUrl.startsWith('data:image') || originalItem.imageUrl.startsWith('https://placehold.co'))) {
                   displayImageUrl = originalItem.imageUrl;
                 }
                 // Actualizar aiHint basado en el tipo real de la prenda si está disponible
                 if (originalItem.type && originalItem.type.toLowerCase() !== "otro") {
                     aiHint = originalItem.type.split(' ')[0].toLowerCase();
                 }
-              } else if (suggestedItem.id) { // Si no hay originalItem.imageUrl pero sí un ID, quizás algo salió mal al buscarla
-                displayImageUrl = "https://placehold.co/200x250.png?text=ID:"+suggestedItem.id.substring(0,4);
+                // Usar el nombre del item original como fallback para el nombre a mostrar
+                displayType = originalItem.type || displayType;
+                displayColor = originalItem.color || displayColor;
+
+              } else if (suggestedItem.id) { // Si no hay originalItem pero sí un ID de la IA (la IA alucinó un ID)
+                displayImageUrl = `https://placehold.co/200x250.png?text=ID:${suggestedItem.id.substring(0,4)}?`;
+                displayType = suggestedItem.type || "Prenda (ID desconocido)";
+                displayColor = suggestedItem.color || "";
               }
 
 
-              const itemName = `${displayType} ${displayColor}`.trim() || (originalItem ? `${originalItem.type} ${originalItem.color}`.trim() : "Prenda");
+              const itemName = `${displayType} ${displayColor}`.trim() || (originalItem?.name) || "Prenda";
               const altText = itemName || `Prenda sugerida ${index + 1}`;
               const titleText = itemName || `Prenda sugerida ${index + 1}`;
               
