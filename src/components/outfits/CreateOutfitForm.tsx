@@ -43,14 +43,15 @@ interface CreateOutfitFormProps {
   existingOutfit?: OutfitWithItems | null;
 }
 
+// Nuevas categorías según la solicitud del usuario
 const outfitCategories = [
   { name: "Prendas superiores", types: ["Camisa", "Jersey"] },
   { name: "Prendas inferiores", types: ["Pantalón", "Falda"] },
-  { name: "Vestidos", types: ["Vestido"] },
-  { name: "Abrigos y Chaquetas", types: ["Chaqueta"] },
+  { name: "Entero", types: ["Vestido"] }, // Asume que "Vestido" va aquí. Puedes añadir más tipos si los tienes.
+  { name: "Abrigos", types: ["Chaqueta"] }, // Asume que "Chaqueta" va aquí.
   { name: "Zapatos", types: ["Zapatos"] },
   { name: "Accesorios", types: ["Accesorio"] },
-  { name: "Otros", types: ["Otro"] },
+  { name: "Otros", types: ["Otro"] }, // Para cualquier tipo no listado arriba
 ];
 
 
@@ -87,10 +88,39 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       item.color.toLowerCase().includes(lowerSearchTerm)
     );
 
-    return outfitCategories.map(category => ({
-      ...category,
-      items: filtered.filter(item => category.types.includes(item.type))
-    })).filter(category => category.items.length > 0);
+    // Agrupar los ítems filtrados en las nuevas categorías
+    const grouped = outfitCategories.map(category => {
+      const itemsInCategory = filtered.filter(item => category.types.includes(item.type));
+      return {
+        ...category,
+        items: itemsInCategory
+      };
+    });
+
+    // Incluir una categoría "Otros" para ítems que no encajan en las definidas
+    const allCategorizedTypes = outfitCategories.flatMap(c => c.types);
+    const otherItems = filtered.filter(item => !allCategorizedTypes.includes(item.type));
+    
+    const finalGroups = [...grouped];
+    if (otherItems.length > 0) {
+      const otrosCategoryIndex = finalGroups.findIndex(c => c.name === "Otros");
+      if (otrosCategoryIndex !== -1) {
+        // Añadir a la categoría "Otros" existente si ya tiene tipos definidos para ella
+         finalGroups[otrosCategoryIndex].items = [...finalGroups[otrosCategoryIndex].items, ...otherItems.filter(oi => !finalGroups[otrosCategoryIndex].types.includes(oi.type))];
+      } else {
+        // Crear la categoría "Otros" si no existe explícitamente con tipos, o si "Otros" no era para tipos específicos
+        // Esto es un poco redundante con la definición actual de "Otros", pero asegura que se capturen
+         const otrosGroup = finalGroups.find(g => g.name === "Otros");
+         if(otrosGroup) { // Si existe la categoría "Otros"
+            otrosGroup.items.push(...otherItems.filter(oi => !otrosGroup.types.includes(oi.type)))
+         } else { // Si no existe, la creamos (aunque la definición actual ya la incluye)
+            finalGroups.push({ name: "Otros", types: ["Otro"], items: otherItems });
+         }
+      }
+    }
+    // Filtrar categorías vacías (a menos que la búsqueda esté activa, para no ocultar todo si la búsqueda no arroja resultados)
+    return finalGroups.filter(category => category.items.length > 0 || searchTerm);
+
 
   }, [wardrobeItems, searchTerm]);
 
@@ -254,3 +284,5 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
+
+    
