@@ -33,7 +33,8 @@ import { autocompleteClothingDetails } from "@/ai/flows/autocomplete-clothing-de
 import type { AutocompleteClothingDetailsOutput } from "@/ai/flows/autocomplete-clothing-details";
 import type { ClothingItem } from "@/types";
 
-const clothingTypes = ["Camisa", "Pantalón", "Vestido", "Falda", "Chaqueta", "Jersey", "Zapatos", "Accesorio", "Otro"];
+// Nuevas categorías amplias para el tipo de prenda
+const clothingCategoriesAsTypes = ["Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"];
 const seasons = ["Primavera", "Verano", "Otoño", "Invierno", "Todo el año"];
 const fabrics = ["Algodón", "Lana", "Seda", "Lino", "Poliéster", "Cuero", "Denim", "Otro"];
 
@@ -103,7 +104,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       setPreviewUrl(null);
       setSelectedImage(null);
     }
-  }, [itemToEdit, mode, form.reset]); // form.reset is stable
+  }, [itemToEdit, mode, form]); 
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -158,17 +159,24 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       if (!seasons.includes(suggestedSeason)) {
         suggestedSeason = "Todo el año"; 
       }
+
+      const suggestedType = result.type || "";
+      if(clothingCategoriesAsTypes.includes(suggestedType)){
+        form.setValue("type", suggestedType);
+      } else if(form.getValues("type") === ""){
+         // Si la IA no devuelve un tipo válido y el campo está vacío, no lo llenamos,
+         // o podríamos poner "Otros" si fuera un requisito.
+      }
       
-      form.setValue("type", result.type || form.getValues("type"));
       form.setValue("color", result.color || form.getValues("color"));
       form.setValue("season", suggestedSeason);
       form.setValue("fabric", result.fabric || form.getValues("fabric"));
       
       const currentName = form.getValues("name");
-      if ((!currentName || mode === 'add') && result.type && result.color) { 
-        form.setValue("name", `${result.type} ${result.color}`);
-      } else if ((!currentName || mode === 'add') && result.type) {
-        form.setValue("name", result.type);
+      if ((!currentName || mode === 'add') && suggestedType && result.color) { 
+        form.setValue("name", `${suggestedType} ${result.color}`);
+      } else if ((!currentName || mode === 'add') && suggestedType) {
+        form.setValue("name", suggestedType);
       }
 
       toast({ title: "¡Autocompletado!", description: "Campos sugeridos por IA." });
@@ -189,7 +197,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
     setIsSaving(true);
     let imageUrlToSave: string;
 
-    if (selectedImage && previewUrl) { 
+    if (selectedImage && previewUrl && previewUrl.startsWith('data:image')) { 
       if (previewUrl.length > FIRESTORE_APPROX_DATA_URI_LIMIT_CHARS) {
         toast({
           title: "Error al guardar: Imagen demasiado grande",
@@ -202,9 +210,9 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
       }
       imageUrlToSave = previewUrl;
     } else if (mode === 'edit' && itemToEdit?.imageUrl && itemToEdit.imageUrl.startsWith('data:image')) { 
-      imageUrlToSave = itemToEdit.imageUrl; // Use existing Data URI if no new image
+      imageUrlToSave = itemToEdit.imageUrl; 
     } else if (mode === 'edit' && itemToEdit?.imageUrl === PLACEHOLDER_IMAGE_URL && !selectedImage) {
-      imageUrlToSave = PLACEHOLDER_IMAGE_URL; // Keep placeholder if editing and no new image selected
+      imageUrlToSave = PLACEHOLDER_IMAGE_URL; 
     }
     else { 
       imageUrlToSave = PLACEHOLDER_IMAGE_URL;
@@ -348,7 +356,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {clothingTypes.map(type => (
+                    {clothingCategoriesAsTypes.map(type => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>

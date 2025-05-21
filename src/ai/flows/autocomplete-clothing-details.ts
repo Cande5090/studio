@@ -25,7 +25,7 @@ export type AutocompleteClothingDetailsInput = z.infer<
 >;
 
 const AutocompleteClothingDetailsOutputSchema = z.object({
-  type: z.string().describe('El tipo de prenda (ej. Camisa, Vestido, Pantalón). Trata de ser específico.'),
+  type: z.string().describe('La categoría general de la prenda (ej. Prendas superiores, Prendas inferiores, Entero, Abrigos, Zapatos, Accesorios, Otros). Trata de ser específico dentro de estas categorías si es posible, pero el valor DEBE ser uno de estos.'),
   color: z.string().describe('El color principal de la prenda (ej. Azul marino, Rojo vibrante, Estampado floral).'),
   season: z.string().describe('La temporada o estación para la que es más adecuada la prenda. Debe ser uno de: Primavera, Verano, Otoño, Invierno, Para todo el año.'),
   fabric: z.string().describe('El tejido principal de la prenda (ej. Algodón, Seda, Poliéster, Lino, Lana).'),
@@ -47,18 +47,19 @@ const autocompleteClothingDetailsPrompt = ai.definePrompt({
   prompt: `Eres un asistente de IA experto en analizar imágenes de prendas de vestir y sugerir detalles sobre ellas. Todas tus respuestas deben ser en ESPAÑOL.
 
 Tu tarea es analizar la siguiente imagen y proporcionar la siguiente información para los CUATRO campos siguientes:
-1.  **Tipo**: El tipo de prenda (ej. Camisa, Vestido, Pantalón, Zapato, Chaqueta, Falda, Jersey, Accesorio).
+1.  **Tipo**: La categoría general de la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"**. No inventes otros valores.
 2.  **Color**: El color predominante de la prenda (ej. Azul marino, Rojo vibrante, Blanco, Negro, Beige, Estampado floral).
 3.  **Temporada**: La temporada o estación para la que es más adecuada la prenda. **Este campo es OBLIGATORIO. Debes seleccionar OBLIGATORIAMENTE uno de los siguientes valores exactos: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año"**. No inventes otros valores.
 4.  **Tejido**: El tejido principal de la prenda (ej. Algodón, Seda, Poliéster, Lino, Lana, Denim, Cuero Sintético).
 
 **NO OMITAS NINGÚN CAMPO. Proporciona un valor para tipo, color, temporada y tejido.**
-Asegúrate de que tu respuesta incluya los cuatro campos y que el campo 'temporada' sea estrictamente uno de los valores listados anteriormente.
+Asegúrate de que tu respuesta incluya los cuatro campos y que los campos 'tipo' y 'temporada' sean estrictamente uno de los valores listados anteriormente.
 
 Imagen: {{media url=photoDataUri}}
 
 Por favor, devuelve la información estructurada según el esquema de salida. Recuerda, todas las respuestas en ESPAÑOL.
-Para el campo 'temporada', reitero una vez más, es crucial que elijas solo entre: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año".`,
+Para el campo 'temporada', reitero una vez más, es crucial que elijas solo entre: "Primavera", "Verano", "Otoño", "Invierno", "Para todo el año".
+Para el campo 'tipo', reitero una vez más, es crucial que elijas solo entre: "Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros".`,
 });
 
 const autocompleteClothingDetailsFlow = ai.defineFlow(

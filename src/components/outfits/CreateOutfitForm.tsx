@@ -43,15 +43,15 @@ interface CreateOutfitFormProps {
   existingOutfit?: OutfitWithItems | null;
 }
 
-// Nuevas categorías según la solicitud del usuario
+// Las categorías son ahora los mismos tipos que se guardan para las prendas
 const outfitCategories = [
-  { name: "Prendas superiores", types: ["Camisa", "Jersey"] },
-  { name: "Prendas inferiores", types: ["Pantalón", "Falda"] },
-  { name: "Entero", types: ["Vestido"] }, // Asume que "Vestido" va aquí. Puedes añadir más tipos si los tienes.
-  { name: "Abrigos", types: ["Chaqueta"] }, // Asume que "Chaqueta" va aquí.
-  { name: "Zapatos", types: ["Zapatos"] },
-  { name: "Accesorios", types: ["Accesorio"] },
-  { name: "Otros", types: ["Otro"] }, // Para cualquier tipo no listado arriba
+  "Prendas superiores", 
+  "Prendas inferiores", 
+  "Entero", 
+  "Abrigos", 
+  "Zapatos", 
+  "Accesorios", 
+  "Otros",
 ];
 
 
@@ -84,43 +84,21 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filtered = wardrobeItems.filter(item => 
       item.name.toLowerCase().includes(lowerSearchTerm) ||
-      item.type.toLowerCase().includes(lowerSearchTerm) ||
+      item.type.toLowerCase().includes(lowerSearchTerm) || // El type de la prenda ya es la categoría
       item.color.toLowerCase().includes(lowerSearchTerm)
     );
 
-    // Agrupar los ítems filtrados en las nuevas categorías
-    const grouped = outfitCategories.map(category => {
-      const itemsInCategory = filtered.filter(item => category.types.includes(item.type));
+    // Agrupar los ítems filtrados por su tipo (que ahora es la categoría)
+    const grouped = outfitCategories.map(categoryName => {
+      const itemsInCategory = filtered.filter(item => item.type === categoryName);
       return {
-        ...category,
+        name: categoryName, // El nombre de la categoría del acordeón
         items: itemsInCategory
       };
     });
-
-    // Incluir una categoría "Otros" para ítems que no encajan en las definidas
-    const allCategorizedTypes = outfitCategories.flatMap(c => c.types);
-    const otherItems = filtered.filter(item => !allCategorizedTypes.includes(item.type));
     
-    const finalGroups = [...grouped];
-    if (otherItems.length > 0) {
-      const otrosCategoryIndex = finalGroups.findIndex(c => c.name === "Otros");
-      if (otrosCategoryIndex !== -1) {
-        // Añadir a la categoría "Otros" existente si ya tiene tipos definidos para ella
-         finalGroups[otrosCategoryIndex].items = [...finalGroups[otrosCategoryIndex].items, ...otherItems.filter(oi => !finalGroups[otrosCategoryIndex].types.includes(oi.type))];
-      } else {
-        // Crear la categoría "Otros" si no existe explícitamente con tipos, o si "Otros" no era para tipos específicos
-        // Esto es un poco redundante con la definición actual de "Otros", pero asegura que se capturen
-         const otrosGroup = finalGroups.find(g => g.name === "Otros");
-         if(otrosGroup) { // Si existe la categoría "Otros"
-            otrosGroup.items.push(...otherItems.filter(oi => !otrosGroup.types.includes(oi.type)))
-         } else { // Si no existe, la creamos (aunque la definición actual ya la incluye)
-            finalGroups.push({ name: "Otros", types: ["Otro"], items: otherItems });
-         }
-      }
-    }
-    // Filtrar categorías vacías (a menos que la búsqueda esté activa, para no ocultar todo si la búsqueda no arroja resultados)
-    return finalGroups.filter(category => category.items.length > 0 || searchTerm);
-
+    // Filtrar categorías vacías (a menos que la búsqueda esté activa)
+    return grouped.filter(category => category.items.length > 0 || searchTerm);
 
   }, [wardrobeItems, searchTerm]);
 
@@ -223,33 +201,29 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                       {category.items.map(item => {
                         const checkboxId = `checkbox-outfit-item-${item.id}`;
                         return (
-                          <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
-                            <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10">
-                                <Checkbox
-                                  id={checkboxId}
-                                  checked={selectedItemIds.includes(item.id)}
-                                  onCheckedChange={() => handleItemSelect(item.id)}
-                                  className="h-5 w-5"
-                                  aria-labelledby={`item-label-${item.id}`}
-                                />
-                            </label>
-                            <div className="w-full aspect-[3/4] relative rounded overflow-hidden">
-                               <label htmlFor={checkboxId} className="cursor-pointer block w-full h-full">
-                                <Image
-                                  src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
-                                  alt={item.name}
-                                  layout="fill"
-                                  objectFit="cover"
-                                  data-ai-hint="clothing item"
-                                />
-                              </label>
-                            </div>
-                            <span id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium">
-                              <label htmlFor={checkboxId} className="cursor-pointer">
-                                {item.name}
-                              </label>
-                            </span>
-                          </div>
+                           <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
+                             <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10 cursor-pointer">
+                               <Checkbox
+                                 id={checkboxId}
+                                 checked={selectedItemIds.includes(item.id)}
+                                 onCheckedChange={() => handleItemSelect(item.id)}
+                                 className="h-5 w-5"
+                                 aria-labelledby={`item-label-${item.id}`}
+                               />
+                             </label>
+                             <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
+                               <Image
+                                 src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
+                                 alt={item.name}
+                                 layout="fill"
+                                 objectFit="cover"
+                                 data-ai-hint="clothing item"
+                               />
+                             </label>
+                             <label htmlFor={checkboxId} id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium cursor-pointer">
+                               {item.name}
+                             </label>
+                           </div>
                         );
                       })}
                     </div>
@@ -284,5 +258,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
-
-    
