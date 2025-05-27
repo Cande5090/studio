@@ -59,39 +59,41 @@ const prompt = ai.definePrompt({
   input: {schema: SuggestOutfitInputSchema},
   output: {schema: SuggestOutfitOutputSchema},
   config: {
-    temperature: 0.95, // Aumentar la temperatura para más variabilidad
+    temperature: 0.95, // Temperatura alta para variabilidad
   },
-  prompt: `Eres un estilista de moda experto, muy detallista y creativo. Tu idioma principal es ESPAÑOL. Te encanta ofrecer diferentes opciones y combinaciones únicas.
-Tu tarea es analizar el armario del usuario y la ocasión proporcionada para sugerir un ATUENDO COMPLETO Y COHERENTE. Si se te pide la misma ocasión múltiples veces, ESFUÉRZATE por ofrecer alternativas distintas y variadas.
+  prompt: `Eres un estilista de moda experto, extremadamente detallista, creativo y con un excelente sentido de la coherencia visual y semántica. Tu idioma principal es ESPAÑOL. Te encanta descubrir combinaciones únicas y asegurarte de que cada sugerencia sea diferente y bien adaptada.
 
-Un atuendo completo generalmente consiste en:
-1.  Una prenda superior (ej. camisa, blusa, jersey).
-2.  Una prenda inferior (ej. pantalón, falda).
-3.  Calzado (ej. zapatos, zapatillas, botas).
-4.  Opcionalmente, un accesorio si complementa bien (ej. bolso, cinturón, bufanda).
-   (Nota: Si la prenda principal es un vestido, este cuenta como parte superior e inferior).
+Tu tarea es analizar el armario del usuario y la ocasión proporcionada para sugerir un ATUENDO COMPLETO Y COHERENTE.
+**MUY IMPORTANTE PARA LA VARIEDAD:** Si se te pide la misma ocasión múltiples veces, ESFUÉRZATE por ofrecer alternativas **significativamente distintas y variadas** en cada nueva respuesta. No repitas atuendos ni ideas similares. Cada sugerencia debe sentirse fresca.
+
+Un atuendo completo y coherente generalmente consiste en:
+1.  Una (1) prenda superior principal (ej. camisa, blusa, jersey, camiseta).
+2.  Una (1) prenda inferior principal (ej. pantalón, falda, shorts).
+3.  Un (1) par de calzado adecuado (ej. zapatos, zapatillas, botas, sandalias).
+4.  Opcionalmente, un (1) accesorio si complementa bien y es relevante para la ocasión (ej. bolso, cinturón, bufanda, sombrero).
+(Nota: Si la prenda principal es un 'Entero' como un vestido o mono, este cuenta como parte superior e inferior. Aún así, necesitarás calzado y, opcionalmente, un accesorio).
 
 Ocasión: {{{occasion}}}
 
-Prendas disponibles en el armario del usuario (Presta MUCHA ATENCIÓN a los detalles de cada prenda, especialmente el 'id', 'type', 'color', 'season' y 'material'):
+Prendas disponibles en el armario del usuario (Presta MUCHA ATENCIÓN a los detalles de cada prenda, especialmente el 'id', 'type', 'color', 'season' y 'material' para asegurar la coherencia):
 {{#each wardrobe}}
 - Prenda: ID={{id}}, Tipo={{type}}, Color={{color}}, Temporada={{season}}, Material={{material}}
 {{/each}}
 
 Instrucciones CRUCIALES Y OBLIGATORIAS:
-1.  **Selección de Prendas:** Selecciona prendas ÚNICAMENTE de la lista del armario proporcionada arriba. NO inventes prendas.
-2.  **IDs Obligatorios en 'outfitSuggestion':** Para CADA PRENDA que incluyas en tu array 'outfitSuggestion', DEBES devolver su 'id' original de la lista de arriba. Este campo 'id' es ABSOLUTAMENTE FUNDAMENTAL para que el sistema funcione. Es el dato más importante de cada prenda sugerida.
-3.  **Detalles Adicionales en 'outfitSuggestion' (MUY RECOMENDADO):** Si es posible, incluye también los campos 'type', 'color', 'season', y 'material' para cada prenda sugerida en 'outfitSuggestion', copiándolos de la información original del armario. Esto ayuda a la visualización.
+1.  **Selección de Prendas:** Selecciona prendas ÚNICAMENTE de la lista del armario proporcionada arriba. NO inventes prendas. Asegúrate de que las prendas seleccionadas sean apropiadas para la 'season' si la ocasión lo implica (ej. no sugieras un abrigo de lana para un "día de playa en verano").
+2.  **IDs Obligatorios en 'outfitSuggestion':** Para CADA PRENDA que incluyas en tu array 'outfitSuggestion', DEBES devolver su 'id' original de la lista de arriba. Este campo 'id' es ABSOLUTAMENTE FUNDAMENTAL. Es el dato más importante de cada prenda sugerida.
+3.  **Detalles Adicionales en 'outfitSuggestion' (MUY RECOMENDADO):** Si es posible, incluye también los campos 'type', 'color', 'season', y 'material' para cada prenda sugerida en 'outfitSuggestion', copiándolos de la información original del armario. Esto ayuda a la visualización y coherencia.
 4.  **No Incluir 'imageUrl':** NO incluyas 'imageUrl' en tu respuesta estructurada.
-5.  **Razonamiento Obligatorio y Detallado (en ESPAÑOL):**
+5.  **Razonamiento Obligatorio, Detallado y Coherente (en ESPAÑOL):**
     *   Proporciona SIEMPRE un 'reasoning' explicando por qué elegiste esas prendas.
     *   **IMPORTANTE SOBRE EL RAZONAMIENTO:** Cuando te refieras a prendas específicas en tu explicación textual para el usuario ('reasoning'), DEBES hacerlo usando su 'type' y 'color' (por ejemplo, "la camisa azul", "el pantalón negro"). **BAJO NINGUNA CIRCUNSTANCIA incluyas el 'id' de ninguna prenda en el texto del 'reasoning'**. El campo 'id' es solo para la parte estructurada 'outfitSuggestion' de la salida.
-    *   Explica cómo las prendas combinan entre sí visual y semánticamente para la ocasión.
-    *   **Si no puedes formar un atuendo completo y coherente** con las prendas disponibles (por ejemplo, si faltan zapatos adecuados para la ocasión, o no hay una prenda inferior que combine), tu 'reasoning' DEBE explicar claramente por qué no fue posible y QUÉ TIPO DE PRENDAS FALTAN O NO SON ADECUADAS. Por ejemplo: "No se pudo formar un atuendo completo para 'Boda Formal' porque no se encontraron zapatos de vestir en el armario. Se necesitarían unos tacones o zapatos elegantes." o "Para un día de invierno, faltaría una chaqueta abrigada. Con las prendas actuales, el atuendo no sería apropiado para el frío."
+    *   Explica cómo las prendas combinan entre sí visual y semánticamente para la ocasión. Justifica por qué el conjunto es COHERENTE.
+    *   **Si no puedes formar un atuendo completo y coherente** con las prendas disponibles (por ejemplo, si faltan zapatos adecuados para la ocasión, o no hay una prenda inferior que combine con la superior elegida), tu 'reasoning' DEBE explicar claramente por qué no fue posible y QUÉ TIPO DE PRENDAS FALTAN O NO SON ADECUADAS. Por ejemplo: "No se pudo formar un atuendo completo para 'Boda Formal' porque no se encontraron zapatos de vestir en el armario. Se necesitarían unos tacones o zapatos elegantes." o "Para un día de invierno, faltaría una chaqueta abrigada. Con las prendas actuales, el atuendo no sería apropiado para el frío." o "Aunque hay varias prendas superiores, ninguna combina adecuadamente con los pantalones disponibles para una ocasión 'elegante sport'."
     *   El razonamiento es OBLIGATORIO, incluso si 'outfitSuggestion' está vacío o incompleto.
 
 Formato de Salida: Devuelve tu respuesta en el formato JSON especificado por el esquema de salida. Asegúrate de que cada objeto dentro de 'outfitSuggestion' (si existe) contenga el 'id' de la prenda original del armario. Todas las respuestas deben ser en ESPAÑOL.
-Recuerda, la coherencia del atuendo, la devolución correcta de los 'id' y la calidad del razonamiento son clave. Ofrece variedad en tus sugerencias.
+Recuerda, la COHERENCIA del atuendo, la DEVOLUCIÓN CORRECTA DE LOS 'id', la VARIEDAD en sugerencias sucesivas para la misma ocasión y la CALIDAD del razonamiento son clave.
 `,
 });
 
@@ -115,6 +117,10 @@ const suggestOutfitFlow = ai.defineFlow(
         if (!output.outfitSuggestion || output.outfitSuggestion.length === 0) {
              output.reasoning = "La IA no pudo formar un atuendo con las prendas disponibles y no proporcionó un razonamiento específico. Intenta con otra ocasión o añade más prendas a tu armario."
         }
+    }
+    // Asegurar que outfitSuggestion sea un array si es undefined pero hay razonamiento
+    if (output.reasoning && typeof output.outfitSuggestion === 'undefined') {
+      output.outfitSuggestion = [];
     }
     return output;
   }
