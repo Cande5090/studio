@@ -27,6 +27,7 @@ export default function SuggestionsPage() {
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [lastOccasion, setLastOccasion] = useState<string | null>(null);
+  const [suggestionAttempt, setSuggestionAttempt] = useState(1);
 
   useEffect(() => {
     if (user) {
@@ -74,7 +75,15 @@ export default function SuggestionsPage() {
 
     setIsSuggesting(true);
     setSuggestion(null); 
-    setLastOccasion(occasion); // Guardar la ocasión actual
+
+    let currentAttempt = 1;
+    if (occasion === lastOccasion) {
+      currentAttempt = suggestionAttempt + 1;
+      setSuggestionAttempt(currentAttempt);
+    } else {
+      setSuggestionAttempt(1); // Reset for new occasion
+    }
+    setLastOccasion(occasion);
 
     try {
       const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
@@ -85,7 +94,7 @@ export default function SuggestionsPage() {
         type: item.type,
         color: item.color,
         season: item.season,
-        material: item.fabric, // Asegúrate de que esto coincida con WardrobeItemForAI
+        material: item.fabric,
       }));
 
       if (wardrobe.length > MAX_WARDROBE_ITEMS_FOR_AI) {
@@ -99,6 +108,7 @@ export default function SuggestionsPage() {
       const input: SuggestOutfitInput = {
         occasion: occasion,
         wardrobe: wardrobeForAI,
+        attemptNumber: currentAttempt,
       };
       
       const suggestionPromise = suggestOutfit(input);
@@ -160,7 +170,7 @@ export default function SuggestionsPage() {
       {!isSuggesting && suggestion && (
         <div className="mt-8">
           <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} occasion={lastOccasion} />
-          {lastOccasion && ( // Solo mostrar si hay una última ocasión
+          {lastOccasion && ( 
             <div className="mt-6 text-center">
               <Button 
                 onClick={() => performSuggestion(lastOccasion)} 
@@ -197,3 +207,4 @@ export default function SuggestionsPage() {
     </div>
   );
 }
+

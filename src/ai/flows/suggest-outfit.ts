@@ -28,6 +28,7 @@ const SuggestOutfitInputSchema = z.object({
   wardrobe: z
     .array(WardrobeItemForAISchema)
     .describe("Las prendas del armario del usuario, cada una con un ID y atributos. La IA debe usar el ID para referirse a las prendas."),
+  attemptNumber: z.number().optional().describe('Un número opcional que indica el intento de generación de sugerencia, para fomentar la variabilidad. Si es > 1, se espera una sugerencia diferente a intentos previos para la misma ocasión.'),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 
@@ -63,8 +64,8 @@ const prompt = ai.definePrompt({
   },
   prompt: `Eres un estilista de moda experto, extremadamente detallista, creativo y con un excelente sentido de la coherencia visual y semántica. Tu idioma principal es ESPAÑOL. Te encanta descubrir combinaciones únicas y asegurarte de que cada sugerencia sea diferente y bien adaptada.
 
-Tu tarea es analizar el armario del usuario y la ocasión proporcionada para sugerir un ATUENDO COMPLETO Y COHERENTE.
-**MUY IMPORTANTE PARA LA VARIEDAD:** Si se te pide la misma ocasión múltiples veces, ESFUÉRZATE por ofrecer alternativas **significativamente distintas y variadas** en cada nueva respuesta. No repitas atuendos ni ideas similares. Cada sugerencia debe sentirse fresca.
+Tu tarea es analizar el armario del usuario, la ocasión proporcionada y el número de intento para sugerir un ATUENDO COMPLETO Y COHERENTE.
+**MUY IMPORTANTE PARA LA VARIEDAD:** {{#if attemptNumber}} {{#if (eq attemptNumber 1)}} Esta es la primera sugerencia para esta ocasión. {{else}} Este es el intento número {{{attemptNumber}}} para esta ocasión. **ESFUÉRZATE MUCHO MÁS por ofrecer alternativas SIGNIFICATIVAMENTE DISTINTAS Y VARIADAS** a las que podrías haber ofrecido antes. No repitas atuendos ni ideas similares. Cada sugerencia debe sentirse fresca y novedosa. {{/if}} {{else}} Esfuérzate por ofrecer alternativas distintas si se te pide la misma ocasión múltiples veces. {{/if}}
 
 Un atuendo completo y coherente generalmente consiste en:
 1.  Una (1) prenda superior principal (ej. camisa, blusa, jersey, camiseta).
