@@ -86,7 +86,7 @@ export default function SuggestionsPage() {
     setLastOccasion(occasion);
 
     try {
-      const sortedWardrobe = [...wardrobe].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      const sortedWardrobe = [...wardrobe].sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
       const limitedWardrobe = sortedWardrobe.slice(0, MAX_WARDROBE_ITEMS_FOR_AI);
       
       const wardrobeForAI = limitedWardrobe.map(item => ({
@@ -126,6 +126,8 @@ export default function SuggestionsPage() {
         errorMessage = "La IA tardó demasiado en responder. Por favor, inténtalo de nuevo más tarde.";
       } else if (error.message && error.message.includes("INVALID_ARGUMENT")) {
         errorMessage = "Hubo un problema con los datos enviados o recibidos de la IA. Revisa la consola.";
+      } else if (error.message && (error.message.includes("503") || error.message.toLowerCase().includes("model is overloaded") || error.message.toLowerCase().includes("service unavailable"))) {
+        errorMessage = "El servicio de IA está temporalmente sobrecargado. Por favor, inténtalo de nuevo en unos momentos.";
       }
       toast({ title: "Error de IA", description: errorMessage, variant: "destructive" });
       setSuggestion(null);
@@ -207,4 +209,3 @@ export default function SuggestionsPage() {
     </div>
   );
 }
-
