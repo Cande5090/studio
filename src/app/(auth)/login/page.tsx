@@ -35,6 +35,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loginAttempts, setLoginAttempts] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,18 +48,26 @@ export default function LoginPage() {
   const watchedEmail = form.watch("email");
 
   useEffect(() => {
-    // Reiniciar el contador de intentos si el email cambia
+    // Reiniciar el contador de intentos y el error si el email cambia
     setLoginAttempts(0);
+    setAuthError(null);
   }, [watchedEmail]);
 
+  // Limpiar el error de autenticación si cualquier campo del formulario cambia
+  useEffect(() => {
+    const subscription = form.watch(() => setAuthError(null));
+    return () => subscription.unsubscribe();
+  }, [form]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setAuthError(null); // Limpiar errores previos al enviar
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({ title: "¡Bienvenido/a!", description: "Has iniciado sesión correctamente." });
       setLoginAttempts(0); // Reiniciar intentos en éxito
       router.push("/dashboard/wardrobe");
     } catch (error: any) {
-      console.error("Error signing in:", error); // Esto es útil para depuración, es normal que aparezca el error de Firebase aquí.
+      console.error("Error signing in:", error); // Esto es útil para depuración
 
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
@@ -73,19 +82,13 @@ export default function LoginPage() {
         return; 
       }
       
-      let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
-      
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Email o contraseña incorrectos."; 
+        setAuthError("Email o contraseña incorrectos.");
       } else if (error.code === 'auth/too-many-requests') {
-        message = "Has intentado iniciar sesión demasiadas veces. Por favor, espera un momento o restablece tu contraseña.";
+        setAuthError("Has intentado iniciar sesión demasiadas veces. Por favor, espera un momento o restablece tu contraseña.");
+      } else {
+        setAuthError("Error al iniciar sesión. Por favor, inténtalo de nuevo.");
       }
-      
-      toast({
-        title: "Error de inicio de sesión",
-        description: message,
-        variant: "default", 
-      });
     }
   }
 
@@ -128,6 +131,9 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
+              {authError && (
+                <p className="text-sm font-medium text-destructive">{authError}</p>
+              )}
                <div className="text-sm">
                 <Link href="/forgot-password" className="font-medium text-primary hover:underline">
                   ¿Olvidaste tu contraseña?
