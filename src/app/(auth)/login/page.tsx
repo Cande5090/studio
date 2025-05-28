@@ -67,7 +67,7 @@ export default function LoginPage() {
         toast({
           title: "Demasiados intentos fallidos",
           description: "Serás redirigido para restablecer tu contraseña.",
-          variant: "destructive",
+          variant: "default", // Cambiado de destructive a default
         });
         router.push("/forgot-password");
         return; // Importante para no mostrar el siguiente toast
@@ -84,7 +84,7 @@ export default function LoginPage() {
       toast({
         title: "Error de inicio de sesión",
         description: message,
-        variant: "destructive",
+        variant: "default", // Cambiado de destructive a default
       });
     }
   }
