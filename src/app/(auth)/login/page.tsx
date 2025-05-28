@@ -58,7 +58,7 @@ export default function LoginPage() {
       setLoginAttempts(0); // Reiniciar intentos en éxito
       router.push("/dashboard/wardrobe");
     } catch (error: any) {
-      console.error("Error signing in:", error);
+      console.error("Error signing in:", error); // Esto es útil para depuración, es normal que aparezca el error de Firebase aquí.
 
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
@@ -70,7 +70,7 @@ export default function LoginPage() {
           variant: "destructive",
         });
         router.push("/forgot-password");
-        return;
+        return; // Importante para no mostrar el siguiente toast
       }
       
       let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
