@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc } from "firebase/firestore";
-import { PlusCircle, LayoutGrid, Trash2, Edit3, Eye, ListPlus } from "lucide-react";
+import { PlusCircle, Trash2, Edit3, Eye, ListPlus } from "lucide-react"; // Se eliminó LayoutGrid
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";

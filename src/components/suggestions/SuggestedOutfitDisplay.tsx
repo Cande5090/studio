@@ -6,7 +6,7 @@ import type { ClothingItem } from "@/types";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquareText, Shirt, Save, Loader2, RotateCw } from "lucide-react";
+import { MessageSquareText, Shirt, Save, Loader2 } from "lucide-react"; // Se eliminó RotateCw
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,18 +105,20 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
               const originalItemId = suggestedItem?.id;
               const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
-              let displayName = originalItem?.name; // Priorizar el nombre original de la prenda
-              if (!displayName) {
-                // Fallback si no se encuentra el nombre original (lo cual no debería pasar si el ID es correcto),
-                // se intenta con tipo y color si la IA los proveyó.
-                const typeFromAI = suggestedItem.type || "";
-                const colorFromAI = suggestedItem.color || "";
-                displayName = `${typeFromAI} ${colorFromAI}`.trim() || "Prenda";
+              let itemName = "Prenda";
+              if (originalItem?.name) {
+                itemName = originalItem.name;
+              } else if (suggestedItem.type && suggestedItem.color) {
+                itemName = `${suggestedItem.type} ${suggestedItem.color}`;
+              } else if (suggestedItem.type) {
+                itemName = suggestedItem.type;
               }
               
-              let displayImageUrl = originalItem?.imageUrl || "https://placehold.co/200x250.png?text=No+Disp.";
+              let displayImageUrl = originalItem?.imageUrl && originalItem.imageUrl.startsWith('data:image') 
+                                    ? originalItem.imageUrl 
+                                    : "https://placehold.co/200x250.png?text=No+Disp.";
+              
               let aiHint = "clothing item";
-
               if (originalItem?.type && originalItem.type.toLowerCase() !== "otro") {
                 aiHint = originalItem.type.split(' ')[0].toLowerCase();
               } else if (suggestedItem.type) {
@@ -128,7 +130,7 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
                   <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden bg-gray-200 flex items-center justify-center">
                    <Image
                       src={displayImageUrl}
-                      alt={displayName || `Prenda sugerida ${index + 1}`}
+                      alt={itemName || `Prenda sugerida ${index + 1}`}
                       layout="fill"
                       objectFit="cover"
                       data-ai-hint={aiHint}
@@ -138,8 +140,8 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
                       }}
                     />
                   </div>
-                  <p className="text-sm font-medium text-center truncate w-full" title={displayName}>
-                    {displayName}
+                  <p className="text-sm font-medium text-center truncate w-full" title={itemName}>
+                    {itemName}
                   </p>
                 </div>
               );
