@@ -67,16 +67,16 @@ export default function LoginPage() {
         toast({
           title: "Demasiados intentos fallidos",
           description: "Serás redirigido para restablecer tu contraseña.",
-          variant: "default", // Cambiado de destructive a default
+          variant: "default", 
         });
         router.push("/forgot-password");
-        return; // Importante para no mostrar el siguiente toast
+        return; 
       }
       
       let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Email o contraseña incorrectos."; // Mensaje simplificado
+        message = "Email o contraseña incorrectos."; 
       } else if (error.code === 'auth/too-many-requests') {
         message = "Has intentado iniciar sesión demasiadas veces. Por favor, espera un momento o restablece tu contraseña.";
       }
@@ -84,7 +84,7 @@ export default function LoginPage() {
       toast({
         title: "Error de inicio de sesión",
         description: message,
-        variant: "default", // Cambiado de destructive a default
+        variant: "default", 
       });
     }
   }
