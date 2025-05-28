@@ -76,7 +76,7 @@ export default function LoginPage() {
       let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = `Email o contraseña incorrectos. Intento ${newAttempts} de ${MAX_LOGIN_ATTEMPTS}.`;
+        message = "Email o contraseña incorrectos."; // Mensaje simplificado
       } else if (error.code === 'auth/too-many-requests') {
         message = "Has intentado iniciar sesión demasiadas veces. Por favor, espera un momento o restablece tu contraseña.";
       }
