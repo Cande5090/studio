@@ -6,6 +6,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,9 +29,13 @@ const formSchema = z.object({
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
 });
 
+const MAX_LOGIN_ATTEMPTS = 4;
+
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [loginAttempts, setLoginAttempts] = useState(0);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,17 +44,39 @@ export default function LoginPage() {
     },
   });
 
+  const watchedEmail = form.watch("email");
+
+  useEffect(() => {
+    // Reiniciar el contador de intentos si el email cambia
+    setLoginAttempts(0);
+  }, [watchedEmail]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({ title: "¡Bienvenido/a!", description: "Has iniciado sesión correctamente." });
+      setLoginAttempts(0); // Reiniciar intentos en éxito
       router.push("/dashboard/wardrobe");
     } catch (error: any) {
       console.error("Error signing in:", error);
+
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+
+      if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
+        toast({
+          title: "Demasiados intentos fallidos",
+          description: "Serás redirigido para restablecer tu contraseña.",
+          variant: "destructive",
+        });
+        router.push("/forgot-password");
+        return;
+      }
+      
       let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
       
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Email o contraseña incorrectos.";
+        message = `Email o contraseña incorrectos. Intento ${newAttempts} de ${MAX_LOGIN_ATTEMPTS}.`;
       } else if (error.code === 'auth/too-many-requests') {
         message = "Has intentado iniciar sesión demasiadas veces. Por favor, espera un momento o restablece tu contraseña.";
       }
