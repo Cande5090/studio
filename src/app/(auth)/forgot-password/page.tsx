@@ -2,10 +2,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,52 +21,51 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { Mail } from "lucide-react";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
-  password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
 });
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
   const { toast } = useToast();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
-      password: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      toast({ title: "¡Bienvenido/a!", description: "Has iniciado sesión correctamente." });
-      router.push("/dashboard/wardrobe");
-    } catch (error: any) {
-      console.error("Error signing in:", error);
-      let message = "Error al iniciar sesión. Por favor, inténtalo de nuevo.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        message = "Email o contraseña incorrectos.";
-      }
+      await sendPasswordResetEmail(auth, values.email);
       toast({
-        title: "Error de inicio de sesión",
-        description: message,
-        variant: "destructive",
+        title: "Correo Enviado",
+        description: "Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña.",
+      });
+      form.reset();
+      // Optionally redirect or show a more persistent success message
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      // Avoid giving away information about whether an email exists or not for security.
+      toast({
+        title: "Solicitud Procesada",
+        description: "Si tu email está registrado, recibirás un enlace para restablecer la contraseña. Revisa también tu carpeta de spam.",
+        variant: "default", // Use default variant to not imply error
       });
     }
   }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-12">
-       <Logo size="lg" className="mb-8" />
+      <Logo size="lg" className="mb-8" />
       <Card className="w-full max-w-sm shadow-xl">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Iniciar Sesión</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Restablecer Contraseña</CardTitle>
           <CardDescription className="text-center">
-            Accede a tu armario virtual.
+            Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -84,33 +84,20 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contraseña</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <div className="text-sm">
-                <Link href="/forgot-password" className="font-medium text-primary hover:underline">
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Iniciando sesión..." : "Iniciar Sesión"}
+                {form.formState.isSubmitting ? "Enviando..." : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Enviar Enlace de Restablecimiento
+                  </>
+                )}
               </Button>
             </form>
           </Form>
           <p className="mt-6 text-center text-sm">
-            ¿No tienes cuenta?{" "}
-            <Link href="/register" className="font-medium text-primary hover:underline">
-              Regístrate aquí
+            ¿Recordaste tu contraseña?{" "}
+            <Link href="/login" className="font-medium text-primary hover:underline">
+              Iniciar sesión
             </Link>
           </p>
         </CardContent>
