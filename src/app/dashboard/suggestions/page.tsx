@@ -86,13 +86,11 @@ export default function SuggestionsPage() {
           const data = outfitDoc.data();
           return {
             id: outfitDoc.id,
-            // We only need collectionName and basic details here for deriving existing collections
-            collectionName: data.collectionName || DEFAULT_COLLECTION_NAME,
-            // Populate other fields minimally if needed, or as Outfit for type consistency
+            collectionName: (data.collectionName || DEFAULT_COLLECTION_NAME).trim(),
             userId: data.userId,
             name: data.name,
             itemIds: data.itemIds || [],
-            items: [], // Not populating full items here to save reads, assuming not needed for collection names
+            items: [], 
             createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
             description: data.description || "",
             isFavorite: data.isFavorite || false,
@@ -113,8 +111,14 @@ export default function SuggestionsPage() {
   }, [user, toast]);
 
   const existingCollectionNames = useMemo(() =>
-    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
-    .filter(name => name.trim() !== "" && name !== FAVORITES_COLLECTION_NAME) // Exclude Favorites from creatable/selectable list here
+    Array.from(
+      new Set(
+        allOutfits
+          .map(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim())
+          .filter(name => name !== "") // Filter out names that became empty after trim
+      )
+    )
+    .filter(name => name !== FAVORITES_COLLECTION_NAME)
     .sort((a, b) => {
         if (a === DEFAULT_COLLECTION_NAME) return -1;
         if (b === DEFAULT_COLLECTION_NAME) return 1;
@@ -174,7 +178,7 @@ export default function SuggestionsPage() {
       const result = await Promise.race([suggestionPromise, timeoutPromise]);
       setSuggestion(result);
 
-    } catch (error: any) { // Added opening brace here
+    } catch (error: any) {
       console.error("Error sugiriendo atuendo:", error);
       let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
       if (error.message === "La sugerencia de la IA ha tardado demasiado.") {

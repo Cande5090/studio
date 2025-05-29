@@ -115,7 +115,7 @@ export default function OutfitsPage() {
       const outfitsQuery = query(
         collection(db, "outfits"),
         where("userId", "==", user.uid),
-        orderBy("createdAt", "desc") 
+        orderBy("createdAt", "desc")
       );
 
       const unsubscribe = onSnapshot(outfitsQuery, async (snapshot) => {
@@ -133,7 +133,7 @@ export default function OutfitsPage() {
               itemIds: itemIds,
               items: itemsForOutfit,
               collectionName: outfitData.collectionName || DEFAULT_COLLECTION_NAME,
-              isFavorite: outfitData.isFavorite || false, // Leer isFavorite
+              isFavorite: outfitData.isFavorite || false, 
               createdAt: (outfitData.createdAt as Timestamp)?.toDate ? (outfitData.createdAt as Timestamp).toDate() : new Date(),
               description: outfitData.description || "",
             } as OutfitWithItems;
@@ -141,9 +141,7 @@ export default function OutfitsPage() {
         );
         setAllOutfits(outfitsData);
         
-        const currentCollectionNames = [FAVORITES_COLLECTION_NAME, ...Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))]
-          .filter((value, index, self) => self.indexOf(value) === index) // Unique names
-          .sort((a, b) => {
+        const currentCollectionNames = [FAVORITES_COLLECTION_NAME, ...Array.from(new Set(outfitsData.map(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim()).filter(name => name)))].sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
             if (a === DEFAULT_COLLECTION_NAME) return -1;
@@ -155,17 +153,22 @@ export default function OutfitsPage() {
           const newOpenSet = new Set(prevOpen.filter(name => currentCollectionNames.includes(name)));
           
           if (!initialAccordionLoadDoneRef.current && currentCollectionNames.length > 0) {
-            newOpenSet.add(FAVORITES_COLLECTION_NAME); // Siempre intentar abrir Favoritos
-            if (outfitsData.some(o => o.collectionName === DEFAULT_COLLECTION_NAME || !o.collectionName)) {
-              newOpenSet.add(DEFAULT_COLLECTION_NAME); // Abrir General si tiene atuendos
+            newOpenSet.add(FAVORITES_COLLECTION_NAME); 
+            if (outfitsData.some(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim() === DEFAULT_COLLECTION_NAME)) {
+              newOpenSet.add(DEFAULT_COLLECTION_NAME); 
             }
             initialAccordionLoadDoneRef.current = true;
           } else if (initialAccordionLoadDoneRef.current) {
+            // If a new collection is added (not "Favorites" or "General"), open it.
+            const existingPrevOpen = new Set(prevOpen);
             currentCollectionNames.forEach(name => {
-              if (!prevOpen.includes(name) && (name === FAVORITES_COLLECTION_NAME || name === DEFAULT_COLLECTION_NAME || outfitsData.some(o => o.collectionName === name))) {
+              if (!existingPrevOpen.has(name) && name !== FAVORITES_COLLECTION_NAME && name !== DEFAULT_COLLECTION_NAME) {
                 newOpenSet.add(name);
               }
             });
+             // Ensure Favorites and General are open if they exist
+            if (currentCollectionNames.includes(FAVORITES_COLLECTION_NAME) && !existingPrevOpen.has(FAVORITES_COLLECTION_NAME)) newOpenSet.add(FAVORITES_COLLECTION_NAME);
+            if (currentCollectionNames.includes(DEFAULT_COLLECTION_NAME) && !existingPrevOpen.has(DEFAULT_COLLECTION_NAME)) newOpenSet.add(DEFAULT_COLLECTION_NAME);
           }
           return Array.from(newOpenSet).sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
@@ -197,7 +200,7 @@ export default function OutfitsPage() {
       if (outfit.isFavorite) {
         favoritesGroup.push(outfit);
       }
-      const collectionKey = outfit.collectionName || DEFAULT_COLLECTION_NAME;
+      const collectionKey = (outfit.collectionName || DEFAULT_COLLECTION_NAME).trim();
       if (!groups[collectionKey]) {
         groups[collectionKey] = [];
       }
@@ -205,7 +208,7 @@ export default function OutfitsPage() {
     });
     
     const result = [];
-    if (favoritesGroup.length > 0 || allOutfits.some(o => o.isFavorite)) { // Show Favorites if any outfit is favorite, even if the array is momentarily empty due to filter
+    if (favoritesGroup.length > 0 || allOutfits.some(o => o.isFavorite)) { 
       result.push({ collectionName: FAVORITES_COLLECTION_NAME, outfits: favoritesGroup });
     }
 
@@ -224,14 +227,21 @@ export default function OutfitsPage() {
 
   }, [allOutfits]);
   
-  const existingCollectionNames = useMemo(() => 
-    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
-    .filter(name => name.trim() !== "" && name !== FAVORITES_COLLECTION_NAME) 
+  const existingCollectionNames = useMemo(() =>
+    Array.from(
+      new Set(
+        allOutfits
+          .map(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim())
+          .filter(name => name !== "") // Filter out names that became empty after trim
+      )
+    )
+    .filter(name => name !== FAVORITES_COLLECTION_NAME)
     .sort((a, b) => {
         if (a === DEFAULT_COLLECTION_NAME) return -1;
         if (b === DEFAULT_COLLECTION_NAME) return 1;
         return a.localeCompare(b);
     }), [allOutfits]);
+
 
   const handleCreateOutfitFormSaved = () => {
     setIsCreateOutfitFormOpen(false);
@@ -323,8 +333,7 @@ export default function OutfitsPage() {
         if (!updated.includes(trimmedNewCollectionName)) { 
             updated.push(trimmedNewCollectionName);
         }
-        return updated.filter((value, index, self) => self.indexOf(value) === index)
-          .sort((a, b) => {
+        return Array.from(new Set(updated)).sort((a, b) => { // Use Set for uniqueness
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
             if (a === DEFAULT_COLLECTION_NAME) return -1;
@@ -387,7 +396,7 @@ export default function OutfitsPage() {
         if (!updated.includes(FAVORITES_COLLECTION_NAME) && allOutfits.some(o => o.isFavorite)) {
           updated.push(FAVORITES_COLLECTION_NAME);
         }
-        return updated.sort((a, b) => {
+        return Array.from(new Set(updated)).sort((a, b) => { // Use Set for uniqueness
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
             if (a === DEFAULT_COLLECTION_NAME) return -1;
@@ -408,7 +417,7 @@ export default function OutfitsPage() {
 
   const handleOpenCreateCollectionDialog = useCallback(() => {
     const outfitsNotInSpecificCollection = allOutfits.filter(
-      (outfit) => !outfit.collectionName || outfit.collectionName === DEFAULT_COLLECTION_NAME
+      (outfit) => (outfit.collectionName || DEFAULT_COLLECTION_NAME).trim() === DEFAULT_COLLECTION_NAME
     );
     setAvailableOutfitsForNewCollection(outfitsNotInSpecificCollection);
     setNewCollectionNameInput("");
@@ -624,7 +633,7 @@ export default function OutfitsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar eliminación?</AlertDialogTitle>
             <AlertDialogDescription>
-              Estás a punto de eliminar el atuendo &quot;{outfitToDelete?.name}&quot; de la colección &quot;{outfitToDelete?.collectionName}&quot;. Esta acción no se puede deshacer.
+              Estás a punto de eliminar el atuendo &quot;{outfitToDelete?.name}&quot; de la colección &quot;{(outfitToDelete?.collectionName || DEFAULT_COLLECTION_NAME).trim()}&quot;. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
