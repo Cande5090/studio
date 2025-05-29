@@ -155,12 +155,21 @@ export default function OutfitsPage() {
       });
   }, [allOutfits]);
 
+  const existingCollectionNames = useMemo(() => {
+    const names = new Set(allOutfits.map(outfit => outfit.collectionName || DEFAULT_COLLECTION_NAME));
+    return Array.from(names).sort((a,b) => {
+        if (a === DEFAULT_COLLECTION_NAME) return -1;
+        if (b === DEFAULT_COLLECTION_NAME) return 1;
+        return a.localeCompare(b);
+    });
+  }, [allOutfits]);
+
   useEffect(() => {
     // Abrir todos los acordeones por defecto cuando los grupos cambian
-    if (groupedOutfits.length > 0) {
+    if (groupedOutfits.length > 0 && openAccordionItems.length === 0) { // Abrir solo si no hay ninguno abierto
       setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
     }
-  }, [groupedOutfits]);
+  }, [groupedOutfits, openAccordionItems.length]);
 
 
   const handleFormSaved = () => {
@@ -215,12 +224,13 @@ export default function OutfitsPage() {
               {editingOutfit ? "Modifica los detalles de tu atuendo." : "Nombra tu atuendo, asígnale una colección y selecciona prendas de tu guardarropa."}
             </DialogDescription>
           </DialogHeader>
-          {isFormOpen && (
+          {isFormOpen && ( // Renderizar solo cuando esté abierto para que las props se pasen correctamente
             <CreateOutfitForm
               setOpen={setIsFormOpen}
               wardrobeItems={wardrobe}
               onOutfitSaved={handleFormSaved}
               existingOutfit={editingOutfit}
+              existingCollectionNames={existingCollectionNames}
             />
           )}
         </DialogContent>
