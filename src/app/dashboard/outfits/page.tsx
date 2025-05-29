@@ -2,11 +2,13 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc } from "firebase/firestore";
-import { PlusCircle, Trash2, Edit3, Eye, ListPlus, FolderOpen } from "lucide-react";
+import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc, writeBatch } from "firebase/firestore";
+import { PlusCircle, Trash2, Edit3, Eye, ListPlus, FolderOpen, Pencil, Loader2 } from "lucide-react";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClothingItem, OutfitWithItems } from "@/types";
@@ -15,8 +17,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OutfitDisplayCard } from "@/components/outfits/OutfitDisplayCard";
@@ -40,8 +44,6 @@ import {
 
 const DEFAULT_COLLECTION_NAME = "General";
 
-// existingCollectionNames logic removed from here
-
 export default function OutfitsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -53,6 +55,12 @@ export default function OutfitsPage() {
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [outfitToDelete, setOutfitToDelete] = useState<OutfitWithItems | null>(null);
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
+  const [isEditingCollection, setIsEditingCollection] = useState(false);
+  const [collectionToEdit, setCollectionToEdit] = useState<{ oldName: string; newName: string } | null>(null);
+  const [isDeletingCollection, setIsDeletingCollection] = useState(false);
+  const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
+  const [isBatchUpdating, setIsBatchUpdating] = useState(false);
 
   useEffect(() => {
     async function fetchWardrobe() {
@@ -119,6 +127,13 @@ export default function OutfitsPage() {
           })
         );
         setAllOutfits(outfitsData);
+        // Update open accordion items if collection names have changed or new ones added
+        const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
+        setOpenAccordionItems(prevOpen => {
+          const stillExistingOpen = prevOpen.filter(name => currentCollectionNames.includes(name));
+          const newCollectionsToOpen = currentCollectionNames.filter(name => !prevOpen.includes(name));
+          return [...stillExistingOpen, ...newCollectionsToOpen];
+        });
         setIsLoadingOutfits(false);
       }, (error) => {
         console.error("Error fetching outfits:", error);
@@ -150,14 +165,21 @@ export default function OutfitsPage() {
         return a.collectionName.localeCompare(b.collectionName);
       });
   }, [allOutfits]);
+  
+  const existingCollectionNames = useMemo(() => 
+    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME))).sort((a, b) => {
+        if (a === DEFAULT_COLLECTION_NAME) return -1;
+        if (b === DEFAULT_COLLECTION_NAME) return 1;
+        return a.localeCompare(b);
+    }), [allOutfits]);
 
-  // Removed existingCollectionNames memo
 
   useEffect(() => {
-    if (groupedOutfits.length > 0 && openAccordionItems.length === 0) { 
+    // Open all accordions by default when outfits load, only if no items are currently open.
+    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits) { 
       setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
     }
-  }, [groupedOutfits, openAccordionItems.length]);
+  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits]);
 
 
   const handleFormSaved = () => {
@@ -171,23 +193,139 @@ export default function OutfitsPage() {
   };
   
   const handleDeleteOutfit = async () => {
-    if (!outfitToDelete) return;
+    if (!outfitToDelete || !user) return;
     try {
       await deleteDoc(doc(db, "outfits", outfitToDelete.id));
       toast({ title: "Atuendo Eliminado", description: `"${outfitToDelete.name}" ha sido eliminado.` });
       setOutfitToDelete(null);
-    } catch (error: any)
- {
+    } catch (error: any) {
       console.error("Error deleting outfit:", error);
-      const errorMessage = error.code ? `Código: ${error.code}. Mensaje: ${error.message}` : error.message || "Ocurrió un error desconocido.";
+      const errorMessage = error.message || "Ocurrió un error desconocido.";
       toast({ 
         title: "Error al Eliminar Atuendo", 
-        description: `No se pudo eliminar: ${errorMessage}. Revisa la consola (F12).`, 
+        description: `No se pudo eliminar: ${errorMessage}.`, 
         variant: "destructive",
-        duration: 9000
       });
     }
   };
+
+  const openEditCollectionDialog = (collectionName: string) => {
+    if (collectionName === DEFAULT_COLLECTION_NAME) {
+      toast({ title: "Información", description: `La colección "${DEFAULT_COLLECTION_NAME}" no se puede editar ni eliminar.`});
+      return;
+    }
+    setCollectionToEdit({ oldName: collectionName, newName: collectionName });
+    setIsEditingCollection(true);
+  };
+
+  const handleUpdateCollectionName = async () => {
+    if (!collectionToEdit || !user || isBatchUpdating) return;
+    const { oldName, newName } = collectionToEdit;
+
+    if (!newName.trim() || newName.trim() === DEFAULT_COLLECTION_NAME) {
+      toast({ title: "Nombre Inválido", description: `El nuevo nombre de la colección no puede estar vacío ni ser "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+      return;
+    }
+    if (newName.trim() === oldName) {
+      setIsEditingCollection(false);
+      setCollectionToEdit(null);
+      return;
+    }
+
+    setIsBatchUpdating(true);
+    try {
+      const outfitsQuery = query(
+        collection(db, "outfits"),
+        where("userId", "==", user.uid),
+        where("collectionName", "==", oldName)
+      );
+      const querySnapshot = await getDocs(outfitsQuery);
+      
+      if (querySnapshot.empty) {
+        toast({ title: "Información", description: `No se encontraron atuendos en la colección "${oldName}".` });
+        setIsEditingCollection(false);
+        setCollectionToEdit(null);
+        setIsBatchUpdating(false);
+        return;
+      }
+
+      const batch = writeBatch(db);
+      querySnapshot.forEach((outfitDoc) => {
+        batch.update(doc(db, "outfits", outfitDoc.id), { collectionName: newName.trim() });
+      });
+      await batch.commit();
+
+      toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${newName.trim()}".` });
+      
+      // Update open accordion items
+      setOpenAccordionItems(prev => prev.map(name => name === oldName ? newName.trim() : name).filter((value, index, self) => self.indexOf(value) === index));
+
+    } catch (error: any) {
+      console.error("Error updating collection name:", error);
+      toast({ title: "Error", description: `No se pudo actualizar la colección: ${error.message}`, variant: "destructive" });
+    } finally {
+      setIsEditingCollection(false);
+      setCollectionToEdit(null);
+      setIsBatchUpdating(false);
+    }
+  };
+
+  const openDeleteCollectionDialog = (collectionName: string) => {
+     if (collectionName === DEFAULT_COLLECTION_NAME) {
+      toast({ title: "Información", description: `La colección "${DEFAULT_COLLECTION_NAME}" no se puede editar ni eliminar.`});
+      return;
+    }
+    setCollectionToDelete(collectionName);
+    setIsDeletingCollection(true);
+  };
+
+  const handleDeleteCollectionAndReassignOutfits = async () => {
+    if (!collectionToDelete || !user || isBatchUpdating) return;
+    setIsBatchUpdating(true);
+    try {
+      const outfitsQuery = query(
+        collection(db, "outfits"),
+        where("userId", "==", user.uid),
+        where("collectionName", "==", collectionToDelete)
+      );
+      const querySnapshot = await getDocs(outfitsQuery);
+
+      if (querySnapshot.empty) {
+        toast({ title: "Información", description: `La colección "${collectionToDelete}" ya estaba vacía o no existía.` });
+         // Ensure the "deleted" collection name is removed from open items if it was there
+        setOpenAccordionItems(prev => prev.filter(name => name !== collectionToDelete));
+        setIsDeletingCollection(false);
+        setCollectionToDelete(null);
+        setIsBatchUpdating(false);
+        return;
+      }
+      
+      const batch = writeBatch(db);
+      querySnapshot.forEach((outfitDoc) => {
+        batch.update(doc(db, "outfits", outfitDoc.id), { collectionName: DEFAULT_COLLECTION_NAME });
+      });
+      await batch.commit();
+
+      toast({ title: "Colección Eliminada", description: `La colección "${collectionToDelete}" ha sido eliminada. Sus atuendos se movieron a "${DEFAULT_COLLECTION_NAME}".` });
+       // Ensure the "deleted" collection name is removed and "General" is added if not present and open
+      setOpenAccordionItems(prev => {
+        const updated = prev.filter(name => name !== collectionToDelete);
+        if (!updated.includes(DEFAULT_COLLECTION_NAME)) {
+          updated.push(DEFAULT_COLLECTION_NAME);
+        }
+        return updated;
+      });
+
+    } catch (error: any) {
+      console.error("Error deleting collection:", error);
+      toast({ title: "Error", description: `No se pudo eliminar la colección: ${error.message}`, variant: "destructive" });
+    } finally {
+      setIsDeletingCollection(false);
+      setCollectionToDelete(null);
+      setIsBatchUpdating(false);
+    }
+  };
+
 
   const isLoading = isLoadingWardrobe || isLoadingOutfits;
 
@@ -218,7 +356,7 @@ export default function OutfitsPage() {
               wardrobeItems={wardrobe}
               onOutfitSaved={handleFormSaved}
               existingOutfit={editingOutfit}
-              // existingCollectionNames prop removed
+              existingCollectionNames={existingCollectionNames}
             />
           )}
         </DialogContent>
@@ -234,10 +372,77 @@ export default function OutfitsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteOutfit}>Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteOutfit} className="bg-destructive hover:bg-destructive/90">Eliminar Atuendo</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog to Edit Collection Name */}
+      <Dialog open={isEditingCollection} onOpenChange={(open) => {
+        if (!open) {
+          setIsEditingCollection(false);
+          setCollectionToEdit(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Nombre de Colección</DialogTitle>
+            <DialogDescription>
+              Renombra la colección &quot;{collectionToEdit?.oldName}&quot;. Esto actualizará todos los atuendos en esta colección.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="newCollectionName" className="text-right col-span-1">
+                Nuevo Nombre
+              </Label>
+              <Input
+                id="newCollectionName"
+                value={collectionToEdit?.newName || ""}
+                onChange={(e) => setCollectionToEdit(prev => prev ? { ...prev, newName: e.target.value } : null)}
+                className="col-span-3"
+                placeholder="Escribe el nuevo nombre"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditingCollection(false); setCollectionToEdit(null); }} disabled={isBatchUpdating}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdateCollectionName} disabled={isBatchUpdating || !collectionToEdit?.newName.trim() || collectionToEdit.newName.trim() === DEFAULT_COLLECTION_NAME}>
+              {isBatchUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar Cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert Dialog to Confirm Collection Deletion */}
+      <AlertDialog open={isDeletingCollection} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeletingCollection(false);
+          setCollectionToDelete(null);
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar Colección?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estás a punto de eliminar la colección &quot;{collectionToDelete}&quot;. 
+              Los atuendos en esta colección serán movidos a la colección &quot;{DEFAULT_COLLECTION_NAME}&quot;.
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBatchUpdating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCollectionAndReassignOutfits} disabled={isBatchUpdating} className="bg-destructive hover:bg-destructive/90">
+              {isBatchUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar Colección
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
 
       {isLoading && (
          <div className="space-y-4">
@@ -276,9 +481,35 @@ export default function OutfitsPage() {
           {groupedOutfits.map(({ collectionName, outfits: outfitsInCollection }) => (
             <AccordionItem value={collectionName} key={collectionName} className="border bg-card shadow-sm rounded-lg">
               <AccordionTrigger className="px-6 py-4 text-xl font-semibold hover:no-underline">
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="h-6 w-6 text-primary" />
-                  {collectionName} ({outfitsInCollection.length} atuendo(s))
+                <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                    <FolderOpen className="h-6 w-6 text-primary" />
+                    {collectionName} ({outfitsInCollection.length} atuendo(s))
+                    </div>
+                    {collectionName !== DEFAULT_COLLECTION_NAME && (
+                        <div className="flex items-center gap-2 pr-2">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => { e.stopPropagation(); openEditCollectionDialog(collectionName); }}
+                                className="hover:bg-accent/50 h-8 w-8"
+                                disabled={isBatchUpdating}
+                                aria-label={`Editar colección ${collectionName}`}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => { e.stopPropagation(); openDeleteCollectionDialog(collectionName); }}
+                                className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
+                                disabled={isBatchUpdating}
+                                aria-label={`Eliminar colección ${collectionName}`}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-6 pb-6 pt-0">
@@ -304,3 +535,5 @@ export default function OutfitsPage() {
     </div>
   );
 }
+
+    
