@@ -26,7 +26,7 @@ export function OutfitDisplayCard({ outfit, onEdit, onDelete, onToggleFavorite }
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
         <div className="flex justify-between items-start">
-            <div className="flex-grow">
+            <div className="flex-grow min-w-0"> {/* Added min-w-0 here */}
                 <CardTitle className="truncate" title={outfit.name}>{outfit.name}</CardTitle>
                 {outfit.description && <CardDescription className="truncate text-sm">{outfit.description}</CardDescription>}
             </div>
@@ -34,7 +34,7 @@ export function OutfitDisplayCard({ outfit, onEdit, onDelete, onToggleFavorite }
                 variant="ghost" 
                 size="icon" 
                 onClick={() => onToggleFavorite(outfit.id, !!outfit.isFavorite)}
-                className="ml-2 shrink-0" // Removed hover:bg-transparent to allow default ghost hover
+                className="ml-2 shrink-0" 
                 aria-label={outfit.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
             >
                 <Heart className={cn("h-6 w-6 transition-all", outfit.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500 hover:fill-red-100")} />
