@@ -168,12 +168,14 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion, existin
               const originalItemId = suggestedItem?.id;
               const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
-              let itemName = originalItem?.name || "Prenda Desconocida";
-              if (!originalItem?.name) { // Fallback if original name is not found
+              let itemName = originalItem?.name; // Prioritize original name
+              if (!itemName) { // Fallback if original name is not found or empty
                 if (suggestedItem.type && suggestedItem.color) {
                     itemName = `${suggestedItem.type} ${suggestedItem.color}`;
                 } else if (suggestedItem.type) {
                     itemName = suggestedItem.type;
+                } else {
+                    itemName = "Prenda"; // Ultimate fallback
                 }
               }
               
@@ -275,7 +277,7 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion, existin
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={DEFAULT_COLLECTION_NAME}>{DEFAULT_COLLECTION_NAME}</SelectItem>
-                        {existingCollectionNames.map(name => (
+                        {existingCollectionNames.filter(name => name !== DEFAULT_COLLECTION_NAME).map(name => (
                           <SelectItem key={name} value={name}>{name}</SelectItem>
                         ))}
                         <SelectItem value={CREATE_NEW_COLLECTION_VALUE}>
