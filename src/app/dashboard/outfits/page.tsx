@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc, writeBatch } from "firebase/firestore";
 import { PlusCircle, Trash2, Pencil, Loader2, FolderOpen, FolderPlus, Search } from "lucide-react";
 
@@ -57,6 +57,8 @@ export default function OutfitsPage() {
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [outfitToDelete, setOutfitToDelete] = useState<OutfitWithItems | null>(null);
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+  const initialAccordionLoadDoneRef = useRef(false);
+
 
   const [isEditingCollection, setIsEditingCollection] = useState(false);
   const [collectionToEdit, setCollectionToEdit] = useState<{ oldName: string; newName: string } | null>(null);
@@ -136,20 +138,33 @@ export default function OutfitsPage() {
           })
         );
         setAllOutfits(outfitsData);
-        const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
+        
+        const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
+          .sort((a, b) => {
+            if (a === DEFAULT_COLLECTION_NAME) return -1;
+            if (b === DEFAULT_COLLECTION_NAME) return 1;
+            return a.localeCompare(b);
+          });
+
         setOpenAccordionItems(prevOpen => {
-          // Keep currently open accordion items that still exist
-          let updatedOpenItems = prevOpen.filter(name => currentCollectionNames.includes(name));
-          // Add newly created collections to open items if they aren't already (e.g., first outfit added to a new collection)
-          const allCollectionsInState = Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
-          const newCollectionsNotInOpen = allCollectionsInState.filter(name => !updatedOpenItems.includes(name));
-          updatedOpenItems = [...updatedOpenItems, ...newCollectionsNotInOpen];
+          const newOpenSet = new Set(prevOpen.filter(name => currentCollectionNames.includes(name)));
           
-          // If no items are open, and there are collections, open all of them.
-          if (updatedOpenItems.length === 0 && currentCollectionNames.length > 0) {
-            return currentCollectionNames;
+          if (!initialAccordionLoadDoneRef.current && currentCollectionNames.length > 0) {
+            currentCollectionNames.forEach(name => newOpenSet.add(name));
+            initialAccordionLoadDoneRef.current = true;
+          } else if (initialAccordionLoadDoneRef.current) {
+            // Only add newly appeared collections if initial load is done
+            currentCollectionNames.forEach(name => {
+              if (!prevOpen.includes(name)) { // If it wasn't in the previous open set, it's new or re-appeared
+                newOpenSet.add(name);
+              }
+            });
           }
-          return updatedOpenItems;
+          return Array.from(newOpenSet).sort((a, b) => {
+            if (a === DEFAULT_COLLECTION_NAME) return -1;
+            if (b === DEFAULT_COLLECTION_NAME) return 1;
+            return a.localeCompare(b);
+          });
         });
         setIsLoadingOutfits(false);
       }, (error) => {
@@ -161,6 +176,7 @@ export default function OutfitsPage() {
     } else {
       setAllOutfits([]);
       setIsLoadingOutfits(false);
+       initialAccordionLoadDoneRef.current = false; 
     }
   }, [user, wardrobe, toast]);
 
@@ -185,24 +201,17 @@ export default function OutfitsPage() {
   
   const existingCollectionNames = useMemo(() => 
     Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
-    .filter(name => name.trim() !== "") // Ensure no empty string collections
+    .filter(name => name.trim() !== "") 
     .sort((a, b) => {
         if (a === DEFAULT_COLLECTION_NAME) return -1;
         if (b === DEFAULT_COLLECTION_NAME) return 1;
         return a.localeCompare(b);
     }), [allOutfits]);
 
-
-  useEffect(() => {
-    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits && !isCreateOutfitFormOpen) { 
-      setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
-    }
-  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits, isCreateOutfitFormOpen]);
-
-
   const handleCreateOutfitFormSaved = () => {
     setIsCreateOutfitFormOpen(false);
     setEditingOutfit(null);
+    // No need to force open accordion here, `onSnapshot` should handle new collections if any
   };
 
   const handleOpenCreateOutfitForm = (outfitToEdit: OutfitWithItems | null = null) => {
@@ -270,6 +279,7 @@ export default function OutfitsPage() {
       
       if (querySnapshot.empty) {
         toast({ title: "Información", description: `No se encontraron atuendos en la colección "${oldName}".` });
+        setOpenAccordionItems(prev => prev.filter(name => name !== oldName));
         setIsEditingCollection(false);
         setCollectionToEdit(null);
         setIsBatchUpdating(false);
@@ -284,7 +294,18 @@ export default function OutfitsPage() {
 
       toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${trimmedNewCollectionName}".` });
       
-      setOpenAccordionItems(prev => prev.map(name => name === oldName ? trimmedNewCollectionName : name).filter((value, index, self) => self.indexOf(value) === index));
+      setOpenAccordionItems(prev => {
+        const updated = prev.map(name => name === oldName ? trimmedNewCollectionName : name);
+        if (!updated.includes(trimmedNewCollectionName)) { // Ensure the new name is there if it was open
+            updated.push(trimmedNewCollectionName);
+        }
+        return updated.filter((value, index, self) => self.indexOf(value) === index)
+          .sort((a, b) => {
+            if (a === DEFAULT_COLLECTION_NAME) return -1;
+            if (b === DEFAULT_COLLECTION_NAME) return 1;
+            return a.localeCompare(b);
+          });
+      });
 
     } catch (error: any) {
       console.error("Error updating collection name:", error);
@@ -334,10 +355,14 @@ export default function OutfitsPage() {
       toast({ title: "Colección Eliminada", description: `La colección "${collectionToDelete}" ha sido eliminada. Sus atuendos se movieron a "${DEFAULT_COLLECTION_NAME}".` });
       setOpenAccordionItems(prev => {
         const updated = prev.filter(name => name !== collectionToDelete);
-        if (!updated.includes(DEFAULT_COLLECTION_NAME) && groupedOutfits.some(g => g.collectionName === DEFAULT_COLLECTION_NAME)) { // Only add "General" if it exists
+        if (!updated.includes(DEFAULT_COLLECTION_NAME)) {
           updated.push(DEFAULT_COLLECTION_NAME);
         }
-        return updated;
+        return updated.sort((a, b) => {
+            if (a === DEFAULT_COLLECTION_NAME) return -1;
+            if (b === DEFAULT_COLLECTION_NAME) return 1;
+            return a.localeCompare(b);
+          });
       });
 
     } catch (error: any) {
@@ -399,9 +424,15 @@ export default function OutfitsPage() {
 
       toast({ title: "Colección Creada y Atuendos Asignados", description: `Se creó la colección "${trimmedNewCollectionName}" y se movieron ${selectedOutfitIdsForNewCollection.length} atuendo(s).` });
       
-      if (!openAccordionItems.includes(trimmedNewCollectionName)) {
-        setOpenAccordionItems(prev => [...prev, trimmedNewCollectionName]);
-      }
+      setOpenAccordionItems(prev => {
+        const updated = new Set(prev);
+        updated.add(trimmedNewCollectionName);
+        return Array.from(updated).sort((a, b) => {
+            if (a === DEFAULT_COLLECTION_NAME) return -1;
+            if (b === DEFAULT_COLLECTION_NAME) return 1;
+            return a.localeCompare(b);
+          });
+      });
 
     } catch (error: any) {
       console.error("Error creating collection and assigning outfits:", error);
@@ -460,7 +491,7 @@ export default function OutfitsPage() {
               wardrobeItems={wardrobe}
               onOutfitSaved={handleCreateOutfitFormSaved}
               existingOutfit={editingOutfit}
-              existingCollectionNames={existingCollectionNames} // Pasar colecciones existentes
+              existingCollectionNames={existingCollectionNames} 
             />
           )}
         </DialogContent>
@@ -712,3 +743,5 @@ export default function OutfitsPage() {
     </div>
   );
 }
+
+
