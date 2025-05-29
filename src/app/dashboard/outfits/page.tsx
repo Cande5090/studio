@@ -40,10 +40,7 @@ import {
 
 const DEFAULT_COLLECTION_NAME = "General";
 
-interface GroupedOutfits {
-  collectionName: string;
-  outfits: OutfitWithItems[];
-}
+// existingCollectionNames logic removed from here
 
 export default function OutfitsPage() {
   const { user } = useAuth();
@@ -98,7 +95,7 @@ export default function OutfitsPage() {
       const outfitsQuery = query(
         collection(db, "outfits"),
         where("userId", "==", user.uid),
-        orderBy("createdAt", "desc") // Ordenar por fecha de creación para consistencia
+        orderBy("createdAt", "desc") 
       );
 
       const unsubscribe = onSnapshot(outfitsQuery, async (snapshot) => {
@@ -145,7 +142,6 @@ export default function OutfitsPage() {
       groups[collectionKey].push(outfit);
     });
 
-    // Ordenar colecciones, por ejemplo, "General" primero, luego alfabéticamente
     return Object.entries(groups)
       .map(([collectionName, outfits]) => ({ collectionName, outfits }))
       .sort((a, b) => {
@@ -155,18 +151,10 @@ export default function OutfitsPage() {
       });
   }, [allOutfits]);
 
-  const existingCollectionNames = useMemo(() => {
-    const names = new Set(allOutfits.map(outfit => outfit.collectionName || DEFAULT_COLLECTION_NAME));
-    return Array.from(names).sort((a,b) => {
-        if (a === DEFAULT_COLLECTION_NAME) return -1;
-        if (b === DEFAULT_COLLECTION_NAME) return 1;
-        return a.localeCompare(b);
-    });
-  }, [allOutfits]);
+  // Removed existingCollectionNames memo
 
   useEffect(() => {
-    // Abrir todos los acordeones por defecto cuando los grupos cambian
-    if (groupedOutfits.length > 0 && openAccordionItems.length === 0) { // Abrir solo si no hay ninguno abierto
+    if (groupedOutfits.length > 0 && openAccordionItems.length === 0) { 
       setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
     }
   }, [groupedOutfits, openAccordionItems.length]);
@@ -224,13 +212,13 @@ export default function OutfitsPage() {
               {editingOutfit ? "Modifica los detalles de tu atuendo." : "Nombra tu atuendo, asígnale una colección y selecciona prendas de tu guardarropa."}
             </DialogDescription>
           </DialogHeader>
-          {isFormOpen && ( // Renderizar solo cuando esté abierto para que las props se pasen correctamente
+          {isFormOpen && ( 
             <CreateOutfitForm
               setOpen={setIsFormOpen}
               wardrobeItems={wardrobe}
               onOutfitSaved={handleFormSaved}
               existingOutfit={editingOutfit}
-              existingCollectionNames={existingCollectionNames}
+              // existingCollectionNames prop removed
             />
           )}
         </DialogContent>

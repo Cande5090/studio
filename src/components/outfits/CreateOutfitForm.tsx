@@ -6,12 +6,12 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Eye, Loader2, Search, PlusSquare } from "lucide-react";
+import { Eye, Loader2, Search } from "lucide-react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
-  Form, // Correct import from shadcn/ui
+  Form,
   FormControl,
   FormField,
   FormItem,
@@ -27,36 +27,18 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
 
 const DEFAULT_COLLECTION_NAME = "General";
-const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
-
 const clothingCategoriesForForm = ["Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"];
 
 const formSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }).max(50, {message: "El nombre no puede exceder 50 caracteres."}),
   collectionName: z.string().max(50, {message: "El nombre de la colección no puede exceder 50 caracteres."}).optional(),
-  newCollectionNameInput: z.string().max(50, {message: "El nombre de la nueva colección no puede exceder 50 caracteres."}).optional(),
   itemIds: z.array(z.string()).min(1, { message: "Debes seleccionar al menos una prenda." }),
-}).refine(data => {
-    if (data.collectionName === CREATE_NEW_COLLECTION_VALUE) {
-        return data.newCollectionNameInput && data.newCollectionNameInput.trim() !== "";
-    }
-    return true;
-}, {
-    message: "El nombre de la nueva colección no puede estar vacío.",
-    path: ["newCollectionNameInput"],
 });
 
 interface CreateOutfitFormProps {
@@ -64,10 +46,10 @@ interface CreateOutfitFormProps {
   wardrobeItems: ClothingItem[];
   onOutfitSaved: () => void;
   existingOutfit?: OutfitWithItems | null;
-  existingCollectionNames: string[];
+  // existingCollectionNames prop removed
 }
 
-export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existingOutfit, existingCollectionNames }: CreateOutfitFormProps) {
+export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existingOutfit }: CreateOutfitFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -79,51 +61,36 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     defaultValues: {
       name: "",
       collectionName: DEFAULT_COLLECTION_NAME,
-      newCollectionNameInput: "",
       itemIds: [],
     },
   });
 
-  const selectedCollectionUiOption = form.watch("collectionName");
   const currentItemIds = form.watch("itemIds");
 
   useEffect(() => {
     if (existingOutfit) {
-      let initialCollectionValue = existingOutfit.collectionName || DEFAULT_COLLECTION_NAME;
-      let newCollectionNameInputValue = "";
-      const isKnownCollection = existingCollectionNames.includes(initialCollectionValue) || initialCollectionValue === DEFAULT_COLLECTION_NAME;
-
-      if (!isKnownCollection && initialCollectionValue.trim() !== "") {
-        newCollectionNameInputValue = initialCollectionValue;
-        initialCollectionValue = CREATE_NEW_COLLECTION_VALUE;
-      }
-      
-      form.reset({ 
+      form.reset({
         name: existingOutfit.name || "",
-        collectionName: initialCollectionValue,
-        newCollectionNameInput: newCollectionNameInputValue,
+        collectionName: existingOutfit.collectionName || DEFAULT_COLLECTION_NAME,
         itemIds: existingOutfit.itemIds || [],
       });
     } else {
-      form.reset({ 
-        name: "", 
-        collectionName: existingCollectionNames.includes(DEFAULT_COLLECTION_NAME) 
-                        ? DEFAULT_COLLECTION_NAME 
-                        : (existingCollectionNames.length > 0 ? existingCollectionNames[0] : CREATE_NEW_COLLECTION_VALUE),
-        newCollectionNameInput: "",
-        itemIds: [], 
+      form.reset({
+        name: "",
+        collectionName: DEFAULT_COLLECTION_NAME,
+        itemIds: [],
       });
     }
-  }, [existingOutfit, form, existingCollectionNames]);
-  
+  }, [existingOutfit, form]);
+
   const filteredAndGroupedItems = useMemo(() => {
     const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = wardrobeItems.filter(item => 
+    const filtered = wardrobeItems.filter(item =>
       item.name.toLowerCase().includes(lowerSearchTerm) ||
-      (item.type && item.type.toLowerCase().includes(lowerSearchTerm)) || 
+      (item.type && item.type.toLowerCase().includes(lowerSearchTerm)) ||
       (item.color && item.color.toLowerCase().includes(lowerSearchTerm))
     );
-  
+
     const grouped: { [key: string]: ClothingItem[] } = {};
     clothingCategoriesForForm.forEach(categoryName => grouped[categoryName] = []);
 
@@ -131,11 +98,11 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       const categoryKey = item.type && clothingCategoriesForForm.includes(item.type) ? item.type : "Otros";
       grouped[categoryKey].push(item);
     });
-  
+
     return clothingCategoriesForForm.map(categoryName => ({
       name: categoryName,
       items: grouped[categoryName] || []
-    })).filter(category => category.items.length > 0 || searchTerm.trim() === ''); 
+    })).filter(category => category.items.length > 0 || searchTerm.trim() === '');
   }, [wardrobeItems, searchTerm]);
 
   const handleItemSelect = (itemId: string) => {
@@ -153,23 +120,14 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     }
 
     setIsSaving(true);
-    let finalCollectionName = DEFAULT_COLLECTION_NAME;
-    if (values.collectionName === CREATE_NEW_COLLECTION_VALUE) {
-      finalCollectionName = values.newCollectionNameInput?.trim() || DEFAULT_COLLECTION_NAME;
-    } else if (values.collectionName) {
-      finalCollectionName = values.collectionName;
-    }
-    
-    if (!finalCollectionName.trim()) {
-        finalCollectionName = DEFAULT_COLLECTION_NAME;
-    }
+    const finalCollectionName = values.collectionName?.trim() || DEFAULT_COLLECTION_NAME;
 
     const outfitData = {
         userId: user.uid,
         name: values.name,
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
-        description: existingOutfit?.description || "", 
+        description: existingOutfit?.description || "",
         updatedAt: serverTimestamp(),
     };
 
@@ -181,7 +139,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       } else {
         await addDoc(collection(db, "outfits"), {
             ...outfitData,
-            createdAt: serverTimestamp(), 
+            createdAt: serverTimestamp(),
         });
         toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado en la colección "${finalCollectionName}".` });
       }
@@ -190,9 +148,9 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     } catch (error: any) {
       console.error("Error saving outfit:", error);
       const errorMessage = error.code ? `Código: ${error.code}. Mensaje: ${error.message}` : error.message || "Ocurrió un error desconocido.";
-      toast({ 
-        title: "Error al Guardar Atuendo", 
-        description: `No se pudo guardar: ${errorMessage}. Revisa la consola (F12).`, 
+      toast({
+        title: "Error al Guardar Atuendo",
+        description: `No se pudo guardar: ${errorMessage}. Revisa la consola (F12).`,
         variant: "destructive",
         duration: 9000
       });
@@ -217,58 +175,20 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="collectionName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Colección</FormLabel>
-              <Select
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  if (value !== CREATE_NEW_COLLECTION_VALUE) {
-                    form.setValue("newCollectionNameInput", ""); 
-                  }
-                }}
-                value={field.value || DEFAULT_COLLECTION_NAME}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona o crea una colección" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {existingCollectionNames.map(name => (
-                    <SelectItem key={name} value={name}>{name}</SelectItem>
-                  ))}
-                  <SelectItem value={CREATE_NEW_COLLECTION_VALUE}>
-                    <div className="flex items-center gap-2">
-                      <PlusSquare className="h-4 w-4" />
-                      Crear nueva colección...
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Nombre de la Colección (Opcional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Ej: Looks de Verano (por defecto: General)" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {selectedCollectionUiOption === CREATE_NEW_COLLECTION_VALUE && (
-          <FormField
-            control={form.control}
-            name="newCollectionNameInput"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Nombre de la Nueva Colección</FormLabel>
-                <FormControl>
-                  <Input placeholder="Ej: Looks de Verano" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-        )}
 
         <div>
           <FormLabel htmlFor="search-prendas-outfit-form">Buscar Prendas</FormLabel>
@@ -283,21 +203,21 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             />
           </div>
         </div>
-        
+
         <FormField
             control={form.control}
-            name="itemIds" 
-            render={() => ( 
+            name="itemIds"
+            render={() => (
                 <FormItem className="hidden"> {/* Hidden field to trigger validation message for itemIds */}
-                    <FormMessage /> 
+                    <FormMessage />
                 </FormItem>
             )}
         />
 
         <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
         <ScrollArea className="flex-grow border rounded-md p-1">
-          <Accordion 
-            type="multiple" 
+          <Accordion
+            type="multiple"
             className="w-full"
             value={openAccordions}
             onValueChange={setOpenAccordions}
@@ -353,7 +273,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             )}
           </Accordion>
         </ScrollArea>
-        
+
         <div className="mt-auto pt-4 space-y-3 border-t">
            <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
@@ -369,5 +289,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
-
-    
