@@ -3,8 +3,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc, writeBatch } from "firebase/firestore";
-import { PlusCircle, Trash2, Edit3, Eye, ListPlus, FolderOpen, Pencil, Loader2 } from "lucide-react";
-import Image from "next/image";
+import { PlusCircle, Trash2, Pencil, Loader2, FolderOpen } from "lucide-react"; // Removed LayoutGrid as it's not used
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OutfitDisplayCard } from "@/components/outfits/OutfitDisplayCard";
@@ -127,12 +125,12 @@ export default function OutfitsPage() {
           })
         );
         setAllOutfits(outfitsData);
-        // Update open accordion items if collection names have changed or new ones added
         const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
         setOpenAccordionItems(prevOpen => {
           const stillExistingOpen = prevOpen.filter(name => currentCollectionNames.includes(name));
-          const newCollectionsToOpen = currentCollectionNames.filter(name => !prevOpen.includes(name));
-          return [...stillExistingOpen, ...newCollectionsToOpen];
+          // Only add new collections if they weren't previously there; don't re-add if user closed one.
+          const newlyAddedCollections = currentCollectionNames.filter(name => !allOutfits.find(o => o.collectionName === name) && !prevOpen.includes(name));
+          return [...stillExistingOpen, ...newlyAddedCollections];
         });
         setIsLoadingOutfits(false);
       }, (error) => {
@@ -175,11 +173,10 @@ export default function OutfitsPage() {
 
 
   useEffect(() => {
-    // Open all accordions by default when outfits load, only if no items are currently open.
-    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits) { 
+    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits && !isFormOpen) { 
       setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
     }
-  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits]);
+  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits, isFormOpen]);
 
 
   const handleFormSaved = () => {
@@ -257,7 +254,6 @@ export default function OutfitsPage() {
 
       toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${newName.trim()}".` });
       
-      // Update open accordion items
       setOpenAccordionItems(prev => prev.map(name => name === oldName ? newName.trim() : name).filter((value, index, self) => self.indexOf(value) === index));
 
     } catch (error: any) {
@@ -292,7 +288,6 @@ export default function OutfitsPage() {
 
       if (querySnapshot.empty) {
         toast({ title: "Información", description: `La colección "${collectionToDelete}" ya estaba vacía o no existía.` });
-         // Ensure the "deleted" collection name is removed from open items if it was there
         setOpenAccordionItems(prev => prev.filter(name => name !== collectionToDelete));
         setIsDeletingCollection(false);
         setCollectionToDelete(null);
@@ -307,7 +302,6 @@ export default function OutfitsPage() {
       await batch.commit();
 
       toast({ title: "Colección Eliminada", description: `La colección "${collectionToDelete}" ha sido eliminada. Sus atuendos se movieron a "${DEFAULT_COLLECTION_NAME}".` });
-       // Ensure the "deleted" collection name is removed and "General" is added if not present and open
       setOpenAccordionItems(prev => {
         const updated = prev.filter(name => name !== collectionToDelete);
         if (!updated.includes(DEFAULT_COLLECTION_NAME)) {
@@ -352,6 +346,7 @@ export default function OutfitsPage() {
           </DialogHeader>
           {isFormOpen && ( 
             <CreateOutfitForm
+              key={editingOutfit ? `edit-${editingOutfit.id}` : 'create-new'}
               setOpen={setIsFormOpen}
               wardrobeItems={wardrobe}
               onOutfitSaved={handleFormSaved}
@@ -377,7 +372,6 @@ export default function OutfitsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog to Edit Collection Name */}
       <Dialog open={isEditingCollection} onOpenChange={(open) => {
         if (!open) {
           setIsEditingCollection(false);
@@ -417,7 +411,6 @@ export default function OutfitsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Alert Dialog to Confirm Collection Deletion */}
       <AlertDialog open={isDeletingCollection} onOpenChange={(open) => {
         if (!open) {
           setIsDeletingCollection(false);
@@ -459,7 +452,7 @@ export default function OutfitsPage() {
 
       {!isLoading && allOutfits.length === 0 && (
         <div className="text-center py-12 border-2 border-dashed border-border rounded-lg bg-card/50">
-          <ListPlus className="mx-auto h-24 w-24 text-muted-foreground mb-4" />
+          <FolderOpen className="mx-auto h-24 w-24 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2">No has creado ningún atuendo</h2>
           <p className="text-muted-foreground mb-6">
             Empieza creando tu primer atuendo para diferentes ocasiones y organízalos en colecciones.
@@ -495,6 +488,7 @@ export default function OutfitsPage() {
                                 className="hover:bg-accent/50 h-8 w-8"
                                 disabled={isBatchUpdating}
                                 aria-label={`Editar colección ${collectionName}`}
+                                asChild // Fix: Use asChild to prevent button nesting
                             >
                                 <Pencil className="h-4 w-4" />
                             </Button>
@@ -505,6 +499,7 @@ export default function OutfitsPage() {
                                 className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
                                 disabled={isBatchUpdating}
                                 aria-label={`Eliminar colección ${collectionName}`}
+                                asChild // Fix: Use asChild to prevent button nesting
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -535,5 +530,3 @@ export default function OutfitsPage() {
     </div>
   );
 }
-
-    
