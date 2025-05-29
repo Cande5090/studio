@@ -17,7 +17,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"; // Correct import for the Form component
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -59,7 +59,6 @@ const formSchema = z.object({
     path: ["newCollectionNameInput"],
 });
 
-
 interface CreateOutfitFormProps {
   setOpen: (open: boolean) => void;
   wardrobeItems: ClothingItem[];
@@ -92,7 +91,6 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     if (existingOutfit) {
       let initialCollectionValue = existingOutfit.collectionName || DEFAULT_COLLECTION_NAME;
       let newCollectionNameInputValue = "";
-
       const isKnownCollection = existingCollectionNames.includes(initialCollectionValue) || initialCollectionValue === DEFAULT_COLLECTION_NAME;
 
       if (!isKnownCollection && initialCollectionValue.trim() !== "") {
@@ -122,25 +120,22 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filtered = wardrobeItems.filter(item => 
       item.name.toLowerCase().includes(lowerSearchTerm) ||
-      item.type.toLowerCase().includes(lowerSearchTerm) || 
-      item.color.toLowerCase().includes(lowerSearchTerm)
+      (item.type && item.type.toLowerCase().includes(lowerSearchTerm)) || 
+      (item.color && item.color.toLowerCase().includes(lowerSearchTerm))
     );
   
     const grouped: { [key: string]: ClothingItem[] } = {};
+    clothingCategoriesForForm.forEach(categoryName => grouped[categoryName] = []);
+
     filtered.forEach(item => {
-      const categoryKey = item.type || "Otros";
-      if (!grouped[categoryKey]) {
-        grouped[categoryKey] = [];
-      }
+      const categoryKey = item.type && clothingCategoriesForForm.includes(item.type) ? item.type : "Otros";
       grouped[categoryKey].push(item);
     });
   
-    // Ensure all defined categories are present in the output, even if empty, unless searching
     return clothingCategoriesForForm.map(categoryName => ({
       name: categoryName,
       items: grouped[categoryName] || []
     })).filter(category => category.items.length > 0 || searchTerm.trim() === '');
-  
   }, [wardrobeItems, searchTerm]);
 
   const handleItemSelect = (itemId: string) => {
@@ -170,29 +165,24 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     }
 
     const outfitData = {
-      userId: user.uid,
-      name: values.name,
-      itemIds: values.itemIds,
-      collectionName: finalCollectionName,
-      description: existingOutfit?.description || "", 
-      createdAt: existingOutfit?.createdAt || serverTimestamp(), // Preserve original createdAt if editing
-      updatedAt: serverTimestamp(),
+        userId: user.uid,
+        name: values.name,
+        itemIds: values.itemIds,
+        collectionName: finalCollectionName,
+        description: existingOutfit?.description || "",
+        updatedAt: serverTimestamp(),
     };
-    
-    const dataToSave = existingOutfit 
-      ? { ...outfitData } 
-      : { ...outfitData, createdAt: serverTimestamp() };
-
 
     try {
       if (existingOutfit) {
         const outfitRef = doc(db, "outfits", existingOutfit.id);
-        // Ensure not to overwrite createdAt by mistake
-        const { createdAt, ...updateData } = dataToSave;
-        await updateDoc(outfitRef, updateData);
+        await updateDoc(outfitRef, outfitData);
         toast({ title: "¡Atuendo Actualizado!", description: `"${values.name}" ha sido actualizado.` });
       } else {
-        await addDoc(collection(db, "outfits"), dataToSave);
+        await addDoc(collection(db, "outfits"), {
+            ...outfitData,
+            createdAt: serverTimestamp(),
+        });
         toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado en la colección "${finalCollectionName}".` });
       }
       onOutfitSaved();
@@ -298,8 +288,8 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             control={form.control}
             name="itemIds" 
             render={() => ( 
-                <FormItem className="hidden"> {/* Hidden because actual selection happens via custom UI */}
-                    <FormMessage /> {/* Still good to have for validation messages */}
+                <FormItem className="hidden">
+                    <FormMessage />
                 </FormItem>
             )}
         />
@@ -335,7 +325,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                              </label>
                              <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
                                <Image
-                                 src={item.imageUrl || "https://placehold.co/150x200.png"}
+                                 src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
                                  alt={item.name}
                                  layout="fill"
                                  objectFit="cover"
@@ -379,5 +369,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
-
-    
