@@ -11,13 +11,13 @@ import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/fi
 
 import { Button } from "@/components/ui/button";
 import {
-  Form,
+  Form, // Correct import from shadcn/ui
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"; // Correct import for the Form component
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -135,7 +135,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     return clothingCategoriesForForm.map(categoryName => ({
       name: categoryName,
       items: grouped[categoryName] || []
-    })).filter(category => category.items.length > 0 || searchTerm.trim() === '');
+    })).filter(category => category.items.length > 0 || searchTerm.trim() === ''); 
   }, [wardrobeItems, searchTerm]);
 
   const handleItemSelect = (itemId: string) => {
@@ -169,7 +169,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         name: values.name,
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
-        description: existingOutfit?.description || "",
+        description: existingOutfit?.description || "", 
         updatedAt: serverTimestamp(),
     };
 
@@ -181,7 +181,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       } else {
         await addDoc(collection(db, "outfits"), {
             ...outfitData,
-            createdAt: serverTimestamp(),
+            createdAt: serverTimestamp(), 
         });
         toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado en la colección "${finalCollectionName}".` });
       }
@@ -288,8 +288,8 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             control={form.control}
             name="itemIds" 
             render={() => ( 
-                <FormItem className="hidden">
-                    <FormMessage />
+                <FormItem className="hidden"> {/* Hidden field to trigger validation message for itemIds */}
+                    <FormMessage /> 
                 </FormItem>
             )}
         />
@@ -369,3 +369,5 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </Form>
   );
 }
+
+    
