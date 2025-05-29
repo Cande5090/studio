@@ -20,7 +20,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./SidebarNav";
-import { Logo } from "../Logo";
+// import { Logo } from "../Logo"; // Logo importado pero no usado si lo quitamos
 
 export function DashboardHeader() {
   const { user } = useAuth();
@@ -48,14 +48,17 @@ export function DashboardHeader() {
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0">
             <div className="p-4 border-b">
-              <Logo size="md" />
+              {/* <Logo size="md" />  // Logo eliminado del sidebar móvil */}
+              {/* Puedes poner un placeholder o dejarlo vacío */}
+              <span className="font-semibold text-lg">Menú</span>
             </div>
             <SidebarNav mobile={true}/>
           </SheetContent>
         </Sheet>
-        <Link href="/dashboard/wardrobe" className="hidden md:block">
-          <Logo size="md" />
-        </Link>
+        {/* <Link href="/dashboard/wardrobe" className="hidden md:block">
+          <Logo size="md" /> // Logo eliminado de la vista de escritorio
+        </Link> */}
+        {/* Puedes añadir un título aquí si lo deseas, o dejar el espacio */}
       </div>
       
       {user && (
