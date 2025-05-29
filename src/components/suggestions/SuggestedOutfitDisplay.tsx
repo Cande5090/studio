@@ -6,8 +6,8 @@ import type { ClothingItem } from "@/types";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquareText, Shirt, Save, Loader2 } from "lucide-react"; // Se eliminó RotateCw
-import { useMemo, useState } from "react";
+import { MessageSquareText, Shirt, Save, Loader2, PlusCircle } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -22,27 +22,62 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
+const DEFAULT_COLLECTION_NAME = "General";
+const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
+
 interface SuggestedOutfitDisplayProps {
   suggestion: SuggestOutfitOutput | null;
   wardrobe: ClothingItem[];
   occasion?: string | null;
+  existingCollectionNames: string[];
 }
 
-export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: SuggestedOutfitDisplayProps) {
+export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion, existingCollectionNames }: SuggestedOutfitDisplayProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSavingOutfit, setIsSavingOutfit] = useState(false);
   const [outfitNameToSave, setOutfitNameToSave] = useState("");
   const [isSaveAlertDialogOpen, setIsSaveAlertDialogOpen] = useState(false);
 
+  const [selectedCollectionForSave, setSelectedCollectionForSave] = useState<string>(DEFAULT_COLLECTION_NAME);
+  const [newCollectionNameInputForSave, setNewCollectionNameInputForSave] = useState("");
+  const [showNewCollectionInputForSave, setShowNewCollectionInputForSave] = useState(false);
+
   const wardrobeMap = useMemo(() => {
     return new Map(wardrobe.map(item => [item.id, item]));
   }, [wardrobe]);
+
+  useEffect(() => {
+    if (selectedCollectionForSave === CREATE_NEW_COLLECTION_VALUE) {
+      setShowNewCollectionInputForSave(true);
+    } else {
+      setShowNewCollectionInputForSave(false);
+      setNewCollectionNameInputForSave(""); // Clear if existing or default selected
+    }
+  }, [selectedCollectionForSave]);
+
+  useEffect(() => {
+    // Reset local dialog state when the dialog closes or suggestion changes
+    if (!isSaveAlertDialogOpen) {
+        setOutfitNameToSave(occasion ? `Sugerencia IA: ${occasion}` : "Atuendo Sugerido por IA");
+        setSelectedCollectionForSave(DEFAULT_COLLECTION_NAME);
+        setNewCollectionNameInputForSave("");
+        setShowNewCollectionInputForSave(false);
+    }
+  }, [isSaveAlertDialogOpen, occasion, suggestion]);
+
 
   if (!suggestion) {
     return null;
@@ -55,10 +90,36 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
       toast({ title: "Error", description: "No hay sugerencia para guardar o no has iniciado sesión.", variant: "destructive" });
       return;
     }
-    if (!outfitNameToSave.trim()) {
+    const trimmedOutfitName = outfitNameToSave.trim();
+    if (!trimmedOutfitName) {
         toast({ title: "Nombre Requerido", description: "Por favor, ingresa un nombre para el atuendo.", variant: "destructive"});
         return;
     }
+
+    let finalCollectionName = DEFAULT_COLLECTION_NAME;
+    if (selectedCollectionForSave === CREATE_NEW_COLLECTION_VALUE) {
+      const trimmedNewCollection = newCollectionNameInputForSave.trim();
+      if (!trimmedNewCollection) {
+        toast({ title: "Nombre de Colección Requerido", description: "Si creas una nueva colección, debes darle un nombre.", variant: "destructive" });
+        return;
+      }
+      if (trimmedNewCollection === DEFAULT_COLLECTION_NAME) {
+        toast({ title: "Nombre de Colección Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+        return;
+      }
+      if (existingCollectionNames.includes(trimmedNewCollection)) {
+        toast({ title: "Colección Duplicada", description: `La colección "${trimmedNewCollection}" ya existe. Elige otro nombre o selecciónala de la lista.`, variant: "destructive" });
+        return;
+      }
+      finalCollectionName = trimmedNewCollection;
+    } else if (selectedCollectionForSave) {
+      finalCollectionName = selectedCollectionForSave;
+    }
+    
+    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { // Fallback
+        finalCollectionName = DEFAULT_COLLECTION_NAME;
+    }
+
 
     setIsSavingOutfit(true);
     try {
@@ -70,17 +131,19 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
         return;
       }
 
-      const newOutfit = {
+      const newOutfitData = {
         userId: user.uid,
-        name: outfitNameToSave.trim(),
+        name: trimmedOutfitName,
         itemIds: itemIdsToSave,
+        collectionName: finalCollectionName,
         description: occasion ? `Sugerido por IA para: ${occasion}` : "Atuendo sugerido por IA",
         createdAt: serverTimestamp(),
+        isFavorite: false, 
       };
-      await addDoc(collection(db, "outfits"), newOutfit);
-      toast({ title: "¡Atuendo Guardado!", description: `"${outfitNameToSave.trim()}" ha sido guardado en Mis Atuendos.` });
+      await addDoc(collection(db, "outfits"), newOutfitData);
+      toast({ title: "¡Atuendo Guardado!", description: `"${trimmedOutfitName}" ha sido guardado en Mis Atuendos.` });
       setIsSaveAlertDialogOpen(false);
-      setOutfitNameToSave("");
+      // Resetting state is now handled by useEffect on isSaveAlertDialogOpen
     } catch (error: any) {
       console.error("Error saving suggested outfit:", error);
       toast({ title: "Error al Guardar", description: error.message || "No se pudo guardar el atuendo.", variant: "destructive" });
@@ -95,7 +158,7 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">Tu Atuendo Sugerido</CardTitle>
         {(hasOutfitItems || suggestion.reasoning) && (
-          <CardDescription>Basado en tu armario y la ocasión especificada.</CardDescription>
+          <CardDescription>Basado en tu armario y la ocasión: "{occasion || 'No especificada'}".</CardDescription>
         )}
       </CardHeader>
       <CardContent className="space-y-6">
@@ -105,13 +168,13 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
               const originalItemId = suggestedItem?.id;
               const originalItem = originalItemId ? wardrobeMap.get(originalItemId) : undefined;
 
-              let itemName = "Prenda";
-              if (originalItem?.name) {
-                itemName = originalItem.name;
-              } else if (suggestedItem.type && suggestedItem.color) {
-                itemName = `${suggestedItem.type} ${suggestedItem.color}`;
-              } else if (suggestedItem.type) {
-                itemName = suggestedItem.type;
+              let itemName = originalItem?.name || "Prenda Desconocida";
+              if (!originalItem?.name) { // Fallback if original name is not found
+                if (suggestedItem.type && suggestedItem.color) {
+                    itemName = `${suggestedItem.type} ${suggestedItem.color}`;
+                } else if (suggestedItem.type) {
+                    itemName = suggestedItem.type;
+                }
               }
               
               let displayImageUrl = originalItem?.imageUrl && originalItem.imageUrl.startsWith('data:image') 
@@ -171,32 +234,71 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
               <AlertDialogTrigger asChild>
                 <Button onClick={() => {
                   setOutfitNameToSave(occasion ? `Sugerencia IA: ${occasion}` : "Atuendo Sugerido por IA");
+                  setSelectedCollectionForSave(DEFAULT_COLLECTION_NAME); // Reset to default
                   setIsSaveAlertDialogOpen(true);
                 }}>
                   <Save className="mr-2 h-4 w-4" />
                   Guardar Sugerencia de Atuendo
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="sm:max-w-md">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Guardar Atuendo Sugerido</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Dale un nombre a este atuendo para guardarlo en "Mis Atuendos".
+                    Dale un nombre y elige una colección para este atuendo.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="outfit-name-save-suggestion" className="text-right">
-                      Nombre
+                  <div className="space-y-1">
+                    <Label htmlFor="outfit-name-save-suggestion">
+                      Nombre del Atuendo
                     </Label>
                     <Input
                       id="outfit-name-save-suggestion"
                       value={outfitNameToSave}
                       onChange={(e) => setOutfitNameToSave(e.target.value)}
-                      className="col-span-3"
                       placeholder="Ej: Casual para la uni"
+                      disabled={isSavingOutfit}
                     />
                   </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="collection-select-save-suggestion">
+                      Colección
+                    </Label>
+                    <Select
+                      value={selectedCollectionForSave}
+                      onValueChange={setSelectedCollectionForSave}
+                      disabled={isSavingOutfit}
+                    >
+                      <SelectTrigger id="collection-select-save-suggestion">
+                        <SelectValue placeholder="Selecciona una colección" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={DEFAULT_COLLECTION_NAME}>{DEFAULT_COLLECTION_NAME}</SelectItem>
+                        {existingCollectionNames.map(name => (
+                          <SelectItem key={name} value={name}>{name}</SelectItem>
+                        ))}
+                        <SelectItem value={CREATE_NEW_COLLECTION_VALUE}>
+                          <div className="flex items-center">
+                            <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                            Crear nueva colección...
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {showNewCollectionInputForSave && (
+                    <div className="space-y-1">
+                      <Label htmlFor="new-collection-name-save-suggestion">Nombre de Nueva Colección</Label>
+                      <Input
+                        id="new-collection-name-save-suggestion"
+                        value={newCollectionNameInputForSave}
+                        onChange={(e) => setNewCollectionNameInputForSave(e.target.value)}
+                        placeholder="Ej: Looks de Verano"
+                        disabled={isSavingOutfit}
+                      />
+                    </div>
+                  )}
                 </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel onClick={() => setIsSaveAlertDialogOpen(false)} disabled={isSavingOutfit}>Cancelar</AlertDialogCancel>
@@ -225,3 +327,4 @@ export function SuggestedOutfitDisplay({ suggestion, wardrobe, occasion }: Sugge
     </Card>
   );
 }
+

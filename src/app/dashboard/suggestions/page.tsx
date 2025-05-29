@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { collection, query, where, onSnapshot, orderBy, Timestamp } from "firebase/firestore";
 import { Loader2, Sparkles, RotateCw } from "lucide-react"; 
 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import type { ClothingItem } from "@/types";
+import type { ClothingItem, OutfitWithItems } from "@/types";
 import type { SuggestOutfitInput, SuggestOutfitOutput } from "@/ai/flows/suggest-outfit";
 import { suggestOutfit } from "@/ai/flows/suggest-outfit";
 import { SuggestOutfitForm } from "@/components/suggestions/SuggestOutfitForm";
@@ -18,12 +18,17 @@ import { Button } from "@/components/ui/button";
 
 const MAX_WARDROBE_ITEMS_FOR_AI = 50;
 const AI_SUGGESTION_TIMEOUT_MS = 90000; // 90 segundos
+const DEFAULT_COLLECTION_NAME = "General";
+const FAVORITES_COLLECTION_NAME = "Favoritos";
+
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [wardrobe, setWardrobe] = useState<ClothingItem[]>([]);
+  const [allOutfits, setAllOutfits] = useState<OutfitWithItems[]>([]); // To get collection names
   const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
+  const [isLoadingOutfits, setIsLoadingOutfits] = useState(true); // For fetching all outfits
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [lastOccasion, setLastOccasion] = useState<string | null>(null);
@@ -66,6 +71,54 @@ export default function SuggestionsPage() {
       setIsLoadingWardrobe(false);
     }
   }, [user, toast]);
+
+  // Fetch all outfits to derive existing collection names
+  useEffect(() => {
+    if (user) {
+      setIsLoadingOutfits(true);
+      const outfitsQuery = query(
+        collection(db, "outfits"),
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc")
+      );
+      const unsubscribe = onSnapshot(outfitsQuery, (snapshot) => {
+        const outfitsData: OutfitWithItems[] = snapshot.docs.map((outfitDoc) => {
+          const data = outfitDoc.data();
+          return {
+            id: outfitDoc.id,
+            // We only need collectionName and basic details here for deriving existing collections
+            collectionName: data.collectionName || DEFAULT_COLLECTION_NAME,
+            // Populate other fields minimally if needed, or as Outfit for type consistency
+            userId: data.userId,
+            name: data.name,
+            itemIds: data.itemIds || [],
+            items: [], // Not populating full items here to save reads, assuming not needed for collection names
+            createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
+          } as OutfitWithItems;
+        });
+        setAllOutfits(outfitsData);
+        setIsLoadingOutfits(false);
+      }, (error) => {
+        console.error("Error fetching outfits for collection names:", error);
+        toast({ title: "Error", description: "No se pudieron cargar las colecciones existentes.", variant: "destructive"});
+        setIsLoadingOutfits(false);
+      });
+      return () => unsubscribe();
+    } else {
+      setAllOutfits([]);
+      setIsLoadingOutfits(false);
+    }
+  }, [user, toast]);
+
+  const existingCollectionNames = useMemo(() =>
+    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
+    .filter(name => name.trim() !== "" && name !== FAVORITES_COLLECTION_NAME) // Exclude Favorites from creatable/selectable list here
+    .sort((a, b) => {
+        if (a === DEFAULT_COLLECTION_NAME) return -1;
+        if (b === DEFAULT_COLLECTION_NAME) return 1;
+        return a.localeCompare(b);
+    }), [allOutfits]);
+
 
   const performSuggestion = async (occasion: string) => {
     if (wardrobe.length === 0) {
@@ -119,7 +172,7 @@ export default function SuggestionsPage() {
       const result = await Promise.race([suggestionPromise, timeoutPromise]);
       setSuggestion(result);
 
-    } catch (error: any) {
+    } catch (error: any)
       console.error("Error sugiriendo atuendo:", error);
       let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
       if (error.message === "La sugerencia de la IA ha tardado demasiado.") {
@@ -135,8 +188,10 @@ export default function SuggestionsPage() {
       setIsSuggesting(false);
     }
   };
+  
+  const isLoading = isLoadingWardrobe || isLoadingOutfits;
 
-  if (isLoadingWardrobe) {
+  if (isLoading) {
     return (
       <div className="container mx-auto py-8 space-y-6">
         <Skeleton className="h-10 w-1/3" />
@@ -171,7 +226,12 @@ export default function SuggestionsPage() {
       
       {!isSuggesting && suggestion && (
         <div className="mt-8">
-          <SuggestedOutfitDisplay suggestion={suggestion} wardrobe={wardrobe} occasion={lastOccasion} />
+          <SuggestedOutfitDisplay 
+            suggestion={suggestion} 
+            wardrobe={wardrobe} 
+            occasion={lastOccasion} 
+            existingCollectionNames={existingCollectionNames} // Pass existing collection names
+          />
           {lastOccasion && ( 
             <div className="mt-6 text-center">
               <Button 
