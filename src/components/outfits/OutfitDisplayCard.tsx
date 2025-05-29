@@ -6,25 +6,40 @@ import type { OutfitWithItems } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Trash2, Edit3, CalendarDays, Folder } from "lucide-react";
+import { Trash2, Edit3, CalendarDays, Folder, Heart } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface OutfitDisplayCardProps {
   outfit: OutfitWithItems;
   onEdit: (outfit: OutfitWithItems) => void;
   onDelete: (outfit: OutfitWithItems) => void;
+  onToggleFavorite: (outfitId: string, currentIsFavorite: boolean) => void;
 }
 
 const DEFAULT_COLLECTION_NAME = "General";
 
-export function OutfitDisplayCard({ outfit, onEdit, onDelete }: OutfitDisplayCardProps) {
+export function OutfitDisplayCard({ outfit, onEdit, onDelete, onToggleFavorite }: OutfitDisplayCardProps) {
   const displayCollectionName = outfit.collectionName || DEFAULT_COLLECTION_NAME;
   return (
     <Card className="flex flex-col h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader>
-        <CardTitle className="truncate" title={outfit.name}>{outfit.name}</CardTitle>
-        {outfit.description && <CardDescription className="truncate text-sm">{outfit.description}</CardDescription>}
+        <div className="flex justify-between items-start">
+            <div className="flex-grow">
+                <CardTitle className="truncate" title={outfit.name}>{outfit.name}</CardTitle>
+                {outfit.description && <CardDescription className="truncate text-sm">{outfit.description}</CardDescription>}
+            </div>
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => onToggleFavorite(outfit.id, !!outfit.isFavorite)}
+                className="ml-2 shrink-0 hover:bg-transparent"
+                aria-label={outfit.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+            >
+                <Heart className={cn("h-6 w-6 transition-all", outfit.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500 hover:fill-red-100")} />
+            </Button>
+        </div>
         <div className="text-xs text-muted-foreground flex items-center gap-2 pt-1">
             <Folder className="h-3 w-3"/> 
             <span>Colección: {displayCollectionName}</span>

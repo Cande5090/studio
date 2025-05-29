@@ -19,6 +19,7 @@ export interface Outfit {
   description?: string;
   itemIds: string[]; // Array of ClothingItem IDs
   collectionName: string; // Nombre de la colección a la que pertenece el atuendo
+  isFavorite?: boolean; // Nuevo campo para marcar como favorito
   createdAt: Date;
   updatedAt?: Date;
 }
@@ -36,3 +37,4 @@ export interface WardrobeItemForAI {
   season: string;
   material: string; // Corresponds to 'fabric' in ClothingItem
 }
+

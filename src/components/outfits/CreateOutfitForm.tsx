@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form"; // Import FormProvider
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
@@ -11,13 +11,13 @@ import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/fi
 
 import { Button } from "@/components/ui/button";
 import {
-  Form,
+  // Form, // No longer import Form from here
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "@/components/ui/form"; // Keep these
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,13 +43,11 @@ const DEFAULT_COLLECTION_NAME = "General";
 const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
 const clothingCategoriesForForm = ["Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"];
 
-// El esquema de Zod ahora solo necesita el nombre del atuendo y los itemIds.
-// El nombre de la colección se manejará con un select y un input condicional.
 const formSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }).max(50, {message: "El nombre no puede exceder 50 caracteres."}),
   itemIds: z.array(z.string()).min(1, { message: "Debes seleccionar al menos una prenda." }),
-  // collectionName ya no es parte directa del schema de react-hook-form para simplificar,
-  // se manejará a través de estados y lógica separada que luego se combina.
+  collectionSelection: z.string().optional(), // Para el Select
+  newCollectionNameInput: z.string().optional(), // Para el Input condicional
 });
 
 interface CreateOutfitFormProps {
@@ -66,47 +64,58 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [openAccordions, setOpenAccordions] = useState<string[]>(clothingCategoriesForForm);
-
-  const [selectedCollection, setSelectedCollection] = useState<string>(existingOutfit?.collectionName || DEFAULT_COLLECTION_NAME);
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
-  const [newCollectionInputValue, setNewCollectionInputValue] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingOutfit?.name || "",
-      itemIds: existingOutfit?.itemIds || [],
+      name: "",
+      itemIds: [],
+      collectionSelection: DEFAULT_COLLECTION_NAME,
+      newCollectionNameInput: "",
     },
   });
 
   const currentItemIds = form.watch("itemIds");
+  const collectionSelectionValue = form.watch("collectionSelection");
 
   useEffect(() => {
     if (existingOutfit) {
       form.reset({
         name: existingOutfit.name || "",
         itemIds: existingOutfit.itemIds || [],
+        collectionSelection: DEFAULT_COLLECTION_NAME, // Se ajustará abajo
+        newCollectionNameInput: "",
       });
+
       const currentOutfitCollection = existingOutfit.collectionName || DEFAULT_COLLECTION_NAME;
       if (existingCollectionNames.includes(currentOutfitCollection) || currentOutfitCollection === DEFAULT_COLLECTION_NAME) {
-        setSelectedCollection(currentOutfitCollection);
+        form.setValue("collectionSelection", currentOutfitCollection);
         setShowNewCollectionInput(false);
-        setNewCollectionInputValue("");
-      } else { // Colección del atuendo no está en la lista de existentes (es nueva o escrita manualmente antes)
-        setSelectedCollection(CREATE_NEW_COLLECTION_VALUE);
+      } else { // Colección del atuendo no está en la lista (fue nueva o "General" no estaba en la lista por error)
+        form.setValue("collectionSelection", CREATE_NEW_COLLECTION_VALUE);
+        form.setValue("newCollectionNameInput", currentOutfitCollection);
         setShowNewCollectionInput(true);
-        setNewCollectionInputValue(currentOutfitCollection);
       }
-    } else {
+    } else { // Modo Añadir
       form.reset({
         name: "",
         itemIds: [],
+        collectionSelection: DEFAULT_COLLECTION_NAME,
+        newCollectionNameInput: "",
       });
-      setSelectedCollection(DEFAULT_COLLECTION_NAME);
       setShowNewCollectionInput(false);
-      setNewCollectionInputValue("");
     }
   }, [existingOutfit, form, existingCollectionNames]);
+
+  useEffect(() => {
+    if (collectionSelectionValue === CREATE_NEW_COLLECTION_VALUE) {
+      setShowNewCollectionInput(true);
+    } else {
+      setShowNewCollectionInput(false);
+      form.setValue("newCollectionNameInput", ""); // Limpiar si se selecciona una existente o "General"
+    }
+  }, [collectionSelectionValue, form]);
 
 
   const filteredAndGroupedItems = useMemo(() => {
@@ -139,18 +148,6 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     form.setValue("itemIds", newSelectedIds, { shouldValidate: true, shouldDirty: true });
   };
   
-  const handleCollectionChange = (value: string) => {
-    setSelectedCollection(value);
-    if (value === CREATE_NEW_COLLECTION_VALUE) {
-      setShowNewCollectionInput(true);
-      // No prellenar newCollectionInputValue aquí, permitir al usuario escribir desde cero.
-      // Si están editando y la colección original no estaba en la lista, useEffect ya lo habrá llenado.
-    } else {
-      setShowNewCollectionInput(false);
-      setNewCollectionInputValue(""); // Limpiar si se selecciona una existente
-    }
-  };
-
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -159,30 +156,31 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     }
 
     let finalCollectionName = DEFAULT_COLLECTION_NAME;
-    if (selectedCollection === CREATE_NEW_COLLECTION_VALUE) {
-      const trimmedNewCollection = newCollectionInputValue.trim();
+    if (values.collectionSelection === CREATE_NEW_COLLECTION_VALUE) {
+      const trimmedNewCollection = values.newCollectionNameInput?.trim();
       if (!trimmedNewCollection) {
-        toast({ title: "Nombre de Colección Requerido", description: "Si creas una nueva colección, debes darle un nombre.", variant: "destructive" });
+        form.setError("newCollectionNameInput", { type: "manual", message: "El nombre de la nueva colección no puede estar vacío." });
+        // toast({ title: "Nombre de Colección Requerido", description: "Si creas una nueva colección, debes darle un nombre.", variant: "destructive" });
         return;
       }
-      if (trimmedNewCollection === DEFAULT_COLLECTION_NAME) {
-         toast({ title: "Nombre de Colección Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+       if (trimmedNewCollection === DEFAULT_COLLECTION_NAME) {
+         form.setError("newCollectionNameInput", { type: "manual", message: `No puedes llamar a una nueva colección "${DEFAULT_COLLECTION_NAME}".` });
+        // toast({ title: "Nombre de Colección Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
         return;
       }
       if (existingCollectionNames.includes(trimmedNewCollection) && (!existingOutfit || existingOutfit.collectionName !== trimmedNewCollection) ) {
-         toast({ title: "Colección Duplicada", description: `La colección "${trimmedNewCollection}" ya existe. Elige otro nombre o selecciónala de la lista.`, variant: "destructive" });
+         form.setError("newCollectionNameInput", { type: "manual", message: `La colección "${trimmedNewCollection}" ya existe.` });
+        // toast({ title: "Colección Duplicada", description: `La colección "${trimmedNewCollection}" ya existe. Elige otro nombre o selecciónala de la lista.`, variant: "destructive" });
         return;
       }
       finalCollectionName = trimmedNewCollection;
-    } else if (selectedCollection) {
-      finalCollectionName = selectedCollection;
+    } else if (values.collectionSelection) {
+      finalCollectionName = values.collectionSelection;
     }
     
-    // Asegurar que finalCollectionName no sea el valor especial
-    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) {
-        finalCollectionName = DEFAULT_COLLECTION_NAME; // Fallback, aunque la validación anterior debería cubrirlo
+    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { // Fallback por si acaso
+        finalCollectionName = DEFAULT_COLLECTION_NAME; 
     }
-
 
     setIsSaving(true);
     const outfitData = {
@@ -190,7 +188,8 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         name: values.name,
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
-        description: existingOutfit?.description || "", // Conservar descripción si existe
+        isFavorite: existingOutfit?.isFavorite || false, // Conservar estado de favorito al editar
+        description: existingOutfit?.description || "", 
         updatedAt: serverTimestamp(),
     };
 
@@ -198,7 +197,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       if (existingOutfit) {
         const outfitRef = doc(db, "outfits", existingOutfit.id);
         await updateDoc(outfitRef, outfitData);
-        toast({ title: "¡Atuendo Actualizado!", description: `"${values.name}" ha sido actualizado en la colección "${finalCollectionName}".` });
+        toast({ title: "¡Atuendo Actualizado!", description: `"${values.name}" ha sido actualizado.` });
       } else {
         await addDoc(collection(db, "outfits"), {
             ...outfitData,
@@ -223,7 +222,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   }
 
   return (
-    <Form {...form}>
+    <FormProvider {...form}> {/* Changed from <Form> to <FormProvider> */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow overflow-hidden">
         <FormField
           control={form.control}
@@ -240,44 +239,61 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-            <FormItem>
+          <FormField
+            control={form.control}
+            name="collectionSelection"
+            render={({ field }) => (
+              <FormItem>
                 <FormLabel htmlFor="collection-select">Colección</FormLabel>
                 <Select
-                    value={selectedCollection}
-                    onValueChange={handleCollectionChange}
+                  onValueChange={field.onChange}
+                  value={field.value || DEFAULT_COLLECTION_NAME}
+                  defaultValue={DEFAULT_COLLECTION_NAME}
                 >
+                  <FormControl>
                     <SelectTrigger id="collection-select">
-                        <SelectValue placeholder="Selecciona una colección" />
+                      <SelectValue placeholder="Selecciona una colección" />
                     </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value={DEFAULT_COLLECTION_NAME}>{DEFAULT_COLLECTION_NAME}</SelectItem>
-                        {existingCollectionNames.filter(name => name !== DEFAULT_COLLECTION_NAME).map(name => (
-                            <SelectItem key={name} value={name}>{name}</SelectItem>
-                        ))}
-                        <SelectItem value={CREATE_NEW_COLLECTION_VALUE}>
-                            <div className="flex items-center">
-                                <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
-                                Crear nueva colección...
-                            </div>
-                        </SelectItem>
-                    </SelectContent>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={DEFAULT_COLLECTION_NAME}>{DEFAULT_COLLECTION_NAME}</SelectItem>
+                    {existingCollectionNames.filter(name => name !== DEFAULT_COLLECTION_NAME).map(name => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                    <SelectItem value={CREATE_NEW_COLLECTION_VALUE}>
+                      <div className="flex items-center">
+                        <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Crear nueva colección...
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
                 </Select>
-            </FormItem>
-
-            {showNewCollectionInput && (
-                <FormItem>
-                    <FormLabel htmlFor="new-collection-input">Nombre de Nueva Colección</FormLabel>
-                    <Input
-                        id="new-collection-input"
-                        placeholder="Ej: Looks de Trabajo"
-                        value={newCollectionInputValue}
-                        onChange={(e) => setNewCollectionInputValue(e.target.value)}
-                    />
-                     {/* Podríamos añadir un FormMessage aquí si newCollectionInputValue se vuelve parte del schema de react-hook-form y tiene validaciones Zod estrictas */}
-                </FormItem>
+                <FormMessage />
+              </FormItem>
             )}
-        </div>
+          />
 
+          {showNewCollectionInput && (
+            <FormField
+              control={form.control}
+              name="newCollectionNameInput"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="new-collection-input">Nombre de Nueva Colección</FormLabel>
+                  <FormControl>
+                    <Input
+                      id="new-collection-input"
+                      placeholder="Ej: Looks de Trabajo"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
 
         <div>
           <FormLabel htmlFor="search-prendas-outfit-form">Buscar Prendas</FormLabel>
@@ -296,7 +312,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         <FormField
             control={form.control}
             name="itemIds"
-            render={() => (
+            render={() => ( // field no se usa directamente aquí si manejamos el valor con form.setValue
                 <FormItem className="flex-grow flex flex-col overflow-hidden">
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
                      <FormMessage className="pb-1"/> {/* Para mostrar el error "Debes seleccionar al menos una prenda." */}
@@ -362,20 +378,18 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             )}
         />
 
-
         <div className="mt-auto pt-4 space-y-3 border-t">
            <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving || (!form.formState.isValid && form.formState.isSubmitted && !form.formState.isDirty) }>
+            <Button type="submit" disabled={isSaving || (form.formState.isSubmitted && !form.formState.isValid && !form.formState.isDirty) }>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
               {existingOutfit ? "Guardar Cambios" : "Guardar Atuendo"}
             </Button>
           </div>
         </div>
       </form>
-    </Form>
+    </FormProvider>
   );
 }
-
