@@ -42,9 +42,7 @@ import type { ClothingItem, OutfitWithItems } from "@/types";
 const DEFAULT_COLLECTION_NAME = "General";
 const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
 
-// These are the broad categories used for item.type when saving/editing a clothing item
 const clothingCategoriesForForm = ["Prendas superiores", "Prendas inferiores", "Entero", "Abrigos", "Zapatos", "Accesorios", "Otros"];
-
 
 const formSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }).max(50, {message: "El nombre no puede exceder 50 caracteres."}),
@@ -80,10 +78,10 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: existingOutfit?.name || "",
+      name: "",
       collectionName: DEFAULT_COLLECTION_NAME,
       newCollectionNameInput: "",
-      itemIds: existingOutfit?.itemIds || [],
+      itemIds: [],
     },
   });
 
@@ -95,11 +93,9 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       let initialCollectionValue = existingOutfit.collectionName || DEFAULT_COLLECTION_NAME;
       let newCollectionNameInputValue = "";
 
-      // Check if the outfit's collection name is one of the known existing ones or the default
       const isKnownCollection = existingCollectionNames.includes(initialCollectionValue) || initialCollectionValue === DEFAULT_COLLECTION_NAME;
 
       if (!isKnownCollection && initialCollectionValue.trim() !== "") {
-        // If it's not known and not empty, it's a custom one that should be put in the "new collection" input
         newCollectionNameInputValue = initialCollectionValue;
         initialCollectionValue = CREATE_NEW_COLLECTION_VALUE;
       }
@@ -110,7 +106,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         newCollectionNameInput: newCollectionNameInputValue,
         itemIds: existingOutfit.itemIds || [],
       });
-    } else { // For adding new outfit
+    } else {
       form.reset({ 
         name: "", 
         collectionName: existingCollectionNames.includes(DEFAULT_COLLECTION_NAME) 
@@ -126,21 +122,25 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filtered = wardrobeItems.filter(item => 
       item.name.toLowerCase().includes(lowerSearchTerm) ||
-      item.type.toLowerCase().includes(lowerSearchTerm) || // item.type is now one of the broad categories
+      item.type.toLowerCase().includes(lowerSearchTerm) || 
       item.color.toLowerCase().includes(lowerSearchTerm)
     );
-
-    const grouped = clothingCategoriesForForm.map(categoryName => {
-      const itemsInCategory = filtered.filter(item => item.type === categoryName);
-      return {
-        name: categoryName,
-        items: itemsInCategory
-      };
+  
+    const grouped: { [key: string]: ClothingItem[] } = {};
+    filtered.forEach(item => {
+      const categoryKey = item.type || "Otros";
+      if (!grouped[categoryKey]) {
+        grouped[categoryKey] = [];
+      }
+      grouped[categoryKey].push(item);
     });
-    
-    // Show category in accordion if it has items OR if search term is empty (to show all categories initially)
-    return grouped.filter(category => category.items.length > 0 || searchTerm.trim() === '');
-
+  
+    // Ensure all defined categories are present in the output, even if empty, unless searching
+    return clothingCategoriesForForm.map(categoryName => ({
+      name: categoryName,
+      items: grouped[categoryName] || []
+    })).filter(category => category.items.length > 0 || searchTerm.trim() === '');
+  
   }, [wardrobeItems, searchTerm]);
 
   const handleItemSelect = (itemId: string) => {
@@ -156,7 +156,6 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       toast({ title: "Error de autenticación", description: "Debes iniciar sesión para guardar atuendos.", variant: "destructive" });
       return;
     }
-    // itemIds validation (min 1) is handled by Zod schema
 
     setIsSaving(true);
     let finalCollectionName = DEFAULT_COLLECTION_NAME;
@@ -166,7 +165,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       finalCollectionName = values.collectionName;
     }
     
-    if (!finalCollectionName.trim()) { // Ensure final collection name is not just whitespace
+    if (!finalCollectionName.trim()) {
         finalCollectionName = DEFAULT_COLLECTION_NAME;
     }
 
@@ -176,15 +175,24 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       itemIds: values.itemIds,
       collectionName: finalCollectionName,
       description: existingOutfit?.description || "", 
+      createdAt: existingOutfit?.createdAt || serverTimestamp(), // Preserve original createdAt if editing
+      updatedAt: serverTimestamp(),
     };
+    
+    const dataToSave = existingOutfit 
+      ? { ...outfitData } 
+      : { ...outfitData, createdAt: serverTimestamp() };
+
 
     try {
       if (existingOutfit) {
         const outfitRef = doc(db, "outfits", existingOutfit.id);
-        await updateDoc(outfitRef, { ...outfitData, updatedAt: serverTimestamp() });
+        // Ensure not to overwrite createdAt by mistake
+        const { createdAt, ...updateData } = dataToSave;
+        await updateDoc(outfitRef, updateData);
         toast({ title: "¡Atuendo Actualizado!", description: `"${values.name}" ha sido actualizado.` });
       } else {
-        await addDoc(collection(db, "outfits"), { ...outfitData, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "outfits"), dataToSave);
         toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado en la colección "${finalCollectionName}".` });
       }
       onOutfitSaved();
@@ -194,9 +202,9 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       const errorMessage = error.code ? `Código: ${error.code}. Mensaje: ${error.message}` : error.message || "Ocurrió un error desconocido.";
       toast({ 
         title: "Error al Guardar Atuendo", 
-        description: `No se pudo guardar: ${errorMessage}. Revisa la consola del navegador (F12) para más detalles y verifica tus reglas de Firestore.`, 
+        description: `No se pudo guardar: ${errorMessage}. Revisa la consola (F12).`, 
         variant: "destructive",
-        duration: 15000 
+        duration: 9000
       });
     } finally {
       setIsSaving(false);
@@ -252,7 +260,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage /> {/* For collectionName field errors if any */}
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -267,17 +275,17 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 <FormControl>
                   <Input placeholder="Ej: Looks de Verano" {...field} />
                 </FormControl>
-                <FormMessage /> {/* For newCollectionNameInput field errors */}
+                <FormMessage />
               </FormItem>
             )}
         )}
 
         <div>
-          <FormLabel htmlFor="search-prendas">Buscar Prendas</FormLabel>
+          <FormLabel htmlFor="search-prendas-outfit-form">Buscar Prendas</FormLabel>
           <div className="relative mt-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              id="search-prendas"
+              id="search-prendas-outfit-form"
               placeholder="Buscar por nombre, categoría, color..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -288,10 +296,10 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         
         <FormField
             control={form.control}
-            name="itemIds" // This field is validated by Zod for min length
+            name="itemIds" 
             render={() => ( 
-                <FormItem className="hidden"> {/* We only need FormMessage here if itemIds is empty */}
-                    <FormMessage />
+                <FormItem className="hidden"> {/* Hidden because actual selection happens via custom UI */}
+                    <FormMessage /> {/* Still good to have for validation messages */}
                 </FormItem>
             )}
         />
@@ -327,7 +335,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                              </label>
                              <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
                                <Image
-                                 src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
+                                 src={item.imageUrl || "https://placehold.co/150x200.png"}
                                  alt={item.name}
                                  layout="fill"
                                  objectFit="cover"
@@ -361,7 +369,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSaving || (!form.formState.isValid && form.formState.isSubmitted) }>
+            <Button type="submit" disabled={isSaving || (!form.formState.isValid && form.formState.isSubmitted && !form.formState.isDirty) }>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
               {existingOutfit ? "Guardar Cambios" : "Guardar Atuendo"}
             </Button>
