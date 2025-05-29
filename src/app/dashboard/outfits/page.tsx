@@ -138,9 +138,18 @@ export default function OutfitsPage() {
         setAllOutfits(outfitsData);
         const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
         setOpenAccordionItems(prevOpen => {
-          const stillExistingOpen = prevOpen.filter(name => currentCollectionNames.includes(name));
-          const newlyAddedCollections = currentCollectionNames.filter(name => !allOutfits.find(o => o.collectionName === name) && !prevOpen.includes(name));
-          return [...stillExistingOpen, ...newlyAddedCollections];
+          // Keep currently open accordion items that still exist
+          let updatedOpenItems = prevOpen.filter(name => currentCollectionNames.includes(name));
+          // Add newly created collections to open items if they aren't already (e.g., first outfit added to a new collection)
+          const allCollectionsInState = Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
+          const newCollectionsNotInOpen = allCollectionsInState.filter(name => !updatedOpenItems.includes(name));
+          updatedOpenItems = [...updatedOpenItems, ...newCollectionsNotInOpen];
+          
+          // If no items are open, and there are collections, open all of them.
+          if (updatedOpenItems.length === 0 && currentCollectionNames.length > 0) {
+            return currentCollectionNames;
+          }
+          return updatedOpenItems;
         });
         setIsLoadingOutfits(false);
       }, (error) => {
@@ -175,7 +184,9 @@ export default function OutfitsPage() {
   }, [allOutfits]);
   
   const existingCollectionNames = useMemo(() => 
-    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME))).sort((a, b) => {
+    Array.from(new Set(allOutfits.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)))
+    .filter(name => name.trim() !== "") // Ensure no empty string collections
+    .sort((a, b) => {
         if (a === DEFAULT_COLLECTION_NAME) return -1;
         if (b === DEFAULT_COLLECTION_NAME) return 1;
         return a.localeCompare(b);
@@ -228,16 +239,21 @@ export default function OutfitsPage() {
   const handleUpdateCollectionName = async () => {
     if (!collectionToEdit || !user || isBatchUpdating) return;
     const { oldName, newName } = collectionToEdit;
+    const trimmedNewCollectionName = newName.trim();
 
-    if (!newName.trim() || newName.trim() === DEFAULT_COLLECTION_NAME) {
-      toast({ title: "Nombre Inválido", description: `El nuevo nombre de la colección no puede estar vacío ni ser "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+    if (!trimmedNewCollectionName) {
+      toast({ title: "Nombre Inválido", description: `El nuevo nombre de la colección no puede estar vacío.`, variant: "destructive" });
       return;
     }
-    if (existingCollectionNames.includes(newName.trim()) && newName.trim() !== oldName) {
-      toast({ title: "Nombre Duplicado", description: `La colección "${newName.trim()}" ya existe.`, variant: "destructive" });
+     if (trimmedNewCollectionName === DEFAULT_COLLECTION_NAME) {
+      toast({ title: "Nombre Inválido", description: `No puedes renombrar una colección a "${DEFAULT_COLLECTION_NAME}". Usa la función de eliminar colección si quieres mover sus atuendos a "General".`, variant: "destructive" });
       return;
     }
-    if (newName.trim() === oldName) {
+    if (existingCollectionNames.includes(trimmedNewCollectionName) && trimmedNewCollectionName !== oldName) {
+      toast({ title: "Nombre Duplicado", description: `La colección "${trimmedNewCollectionName}" ya existe.`, variant: "destructive" });
+      return;
+    }
+    if (trimmedNewCollectionName === oldName) {
       setIsEditingCollection(false);
       setCollectionToEdit(null);
       return;
@@ -262,13 +278,13 @@ export default function OutfitsPage() {
 
       const batch = writeBatch(db);
       querySnapshot.forEach((outfitDoc) => {
-        batch.update(doc(db, "outfits", outfitDoc.id), { collectionName: newName.trim() });
+        batch.update(doc(db, "outfits", outfitDoc.id), { collectionName: trimmedNewCollectionName });
       });
       await batch.commit();
 
-      toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${newName.trim()}".` });
+      toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${trimmedNewCollectionName}".` });
       
-      setOpenAccordionItems(prev => prev.map(name => name === oldName ? newName.trim() : name).filter((value, index, self) => self.indexOf(value) === index));
+      setOpenAccordionItems(prev => prev.map(name => name === oldName ? trimmedNewCollectionName : name).filter((value, index, self) => self.indexOf(value) === index));
 
     } catch (error: any) {
       console.error("Error updating collection name:", error);
@@ -318,7 +334,7 @@ export default function OutfitsPage() {
       toast({ title: "Colección Eliminada", description: `La colección "${collectionToDelete}" ha sido eliminada. Sus atuendos se movieron a "${DEFAULT_COLLECTION_NAME}".` });
       setOpenAccordionItems(prev => {
         const updated = prev.filter(name => name !== collectionToDelete);
-        if (!updated.includes(DEFAULT_COLLECTION_NAME)) {
+        if (!updated.includes(DEFAULT_COLLECTION_NAME) && groupedOutfits.some(g => g.collectionName === DEFAULT_COLLECTION_NAME)) { // Only add "General" if it exists
           updated.push(DEFAULT_COLLECTION_NAME);
         }
         return updated;
@@ -335,10 +351,10 @@ export default function OutfitsPage() {
   };
 
   const handleOpenCreateCollectionDialog = useCallback(() => {
-    const outfitsInGeneral = allOutfits.filter(
+    const outfitsNotInSpecificCollection = allOutfits.filter(
       (outfit) => !outfit.collectionName || outfit.collectionName === DEFAULT_COLLECTION_NAME
     );
-    setAvailableOutfitsForNewCollection(outfitsInGeneral);
+    setAvailableOutfitsForNewCollection(outfitsNotInSpecificCollection);
     setNewCollectionNameInput("");
     setSelectedOutfitIdsForNewCollection([]);
     setSearchTermCreateCollection("");
@@ -355,16 +371,17 @@ export default function OutfitsPage() {
 
   const handleCreateCollectionAndAssign = async () => {
     if (!user || isBatchUpdating) return;
-    if (!newCollectionNameInput.trim()) {
+    const trimmedNewCollectionName = newCollectionNameInput.trim();
+    if (!trimmedNewCollectionName) {
       toast({ title: "Nombre Requerido", description: "Por favor, ingresa un nombre para la nueva colección.", variant: "destructive" });
       return;
     }
-    if (newCollectionNameInput.trim() === DEFAULT_COLLECTION_NAME) {
+    if (trimmedNewCollectionName === DEFAULT_COLLECTION_NAME) {
        toast({ title: "Nombre Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
       return;
     }
-     if (existingCollectionNames.includes(newCollectionNameInput.trim())) {
-      toast({ title: "Nombre Duplicado", description: `La colección "${newCollectionNameInput.trim()}" ya existe. Elige otro nombre.`, variant: "destructive" });
+     if (existingCollectionNames.includes(trimmedNewCollectionName)) {
+      toast({ title: "Nombre Duplicado", description: `La colección "${trimmedNewCollectionName}" ya existe. Elige otro nombre.`, variant: "destructive" });
       return;
     }
     if (selectedOutfitIdsForNewCollection.length === 0) {
@@ -376,22 +393,15 @@ export default function OutfitsPage() {
     try {
       const batch = writeBatch(db);
       selectedOutfitIdsForNewCollection.forEach((outfitId) => {
-        batch.update(doc(db, "outfits", outfitId), { collectionName: newCollectionNameInput.trim() });
+        batch.update(doc(db, "outfits", outfitId), { collectionName: trimmedNewCollectionName });
       });
       await batch.commit();
 
-      toast({ title: "Colección Creada y Atuendos Asignados", description: `Se creó la colección "${newCollectionNameInput.trim()}" y se movieron ${selectedOutfitIdsForNewCollection.length} atuendo(s).` });
+      toast({ title: "Colección Creada y Atuendos Asignados", description: `Se creó la colección "${trimmedNewCollectionName}" y se movieron ${selectedOutfitIdsForNewCollection.length} atuendo(s).` });
       
-      // Ensure the new collection accordion item opens
-      if (!openAccordionItems.includes(newCollectionNameInput.trim())) {
-        setOpenAccordionItems(prev => [...prev, newCollectionNameInput.trim()]);
+      if (!openAccordionItems.includes(trimmedNewCollectionName)) {
+        setOpenAccordionItems(prev => [...prev, trimmedNewCollectionName]);
       }
-      // If items were moved from "General", ensure "General" remains open if it still has items or is needed.
-      const generalStillHasItems = allOutfits.some(o => o.collectionName === DEFAULT_COLLECTION_NAME && !selectedOutfitIdsForNewCollection.includes(o.id));
-      if (!generalStillHasItems && !openAccordionItems.includes(DEFAULT_COLLECTION_NAME) && groupedOutfits.some(g => g.collectionName === DEFAULT_COLLECTION_NAME && g.outfits.length > selectedOutfitIdsForNewCollection.filter(id => allOutfits.find(o => o.id === id)?.collectionName === DEFAULT_COLLECTION_NAME).length)) {
-           // This logic might need refinement based on exact desired behavior for "General" accordion
-      }
-
 
     } catch (error: any) {
       console.error("Error creating collection and assigning outfits:", error);
@@ -420,11 +430,11 @@ export default function OutfitsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold">Mis Atuendos</h1>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={handleOpenCreateCollectionDialog} variant="outline" disabled={isLoading}>
+          <Button onClick={handleOpenCreateCollectionDialog} variant="outline" disabled={isLoading || isBatchUpdating}>
             <FolderPlus className="mr-2 h-5 w-5" />
             Crear Colección
           </Button>
-          <Button onClick={() => handleOpenCreateOutfitForm()} disabled={isLoadingWardrobe}>
+          <Button onClick={() => handleOpenCreateOutfitForm()} disabled={isLoadingWardrobe || isBatchUpdating}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Crear Atuendo
           </Button>
@@ -450,7 +460,7 @@ export default function OutfitsPage() {
               wardrobeItems={wardrobe}
               onOutfitSaved={handleCreateOutfitFormSaved}
               existingOutfit={editingOutfit}
-              existingCollectionNames={existingCollectionNames}
+              existingCollectionNames={existingCollectionNames} // Pasar colecciones existentes
             />
           )}
         </DialogContent>
@@ -462,7 +472,7 @@ export default function OutfitsPage() {
           <DialogHeader>
             <DialogTitle>Crear Nueva Colección</DialogTitle>
             <DialogDescription>
-              Dale un nombre a tu nueva colección y selecciona los atuendos de &quot;{DEFAULT_COLLECTION_NAME}&quot; que quieres incluir.
+              Dale un nombre a tu nueva colección y selecciona los atuendos de &quot;{DEFAULT_COLLECTION_NAME}&quot; o sin colección asignada que quieres incluir.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4 flex-grow flex flex-col overflow-hidden">
@@ -477,7 +487,7 @@ export default function OutfitsPage() {
               />
             </div>
             <div className="space-y-1 flex-grow flex flex-col overflow-hidden">
-              <Label>Atuendos para añadir (de &quot;{DEFAULT_COLLECTION_NAME}&quot;)</Label>
+              <Label>Atuendos para añadir (de &quot;{DEFAULT_COLLECTION_NAME}&quot; o sin colección)</Label>
               <div className="relative mt-1 mb-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -508,7 +518,7 @@ export default function OutfitsPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground p-4 text-center">
-                    {availableOutfitsForNewCollection.length === 0 ? `No hay atuendos en "${DEFAULT_COLLECTION_NAME}" para mover.` : `No se encontraron atuendos que coincidan con tu búsqueda en "${DEFAULT_COLLECTION_NAME}".`}
+                    {availableOutfitsForNewCollection.length === 0 ? `No hay atuendos en "${DEFAULT_COLLECTION_NAME}" o sin colección para mover.` : `No se encontraron atuendos que coincidan con tu búsqueda.`}
                   </p>
                 )}
               </ScrollArea>
@@ -572,7 +582,10 @@ export default function OutfitsPage() {
             <Button variant="outline" onClick={() => { setIsEditingCollection(false); setCollectionToEdit(null); }} disabled={isBatchUpdating}>
               Cancelar
             </Button>
-            <Button onClick={handleUpdateCollectionName} disabled={isBatchUpdating || !collectionToEdit?.newName.trim() || collectionToEdit.newName.trim() === DEFAULT_COLLECTION_NAME || (existingCollectionNames.includes(collectionToEdit?.newName.trim() || "") && collectionToEdit?.newName.trim() !== collectionToEdit?.oldName) }>
+            <Button 
+              onClick={handleUpdateCollectionName} 
+              disabled={isBatchUpdating || !collectionToEdit?.newName.trim() || collectionToEdit.newName.trim() === DEFAULT_COLLECTION_NAME || (existingCollectionNames.includes(collectionToEdit?.newName.trim() || "") && collectionToEdit?.newName.trim() !== collectionToEdit?.oldName) }
+            >
               {isBatchUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar Cambios
             </Button>
@@ -699,5 +712,3 @@ export default function OutfitsPage() {
     </div>
   );
 }
-
-    
