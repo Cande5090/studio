@@ -32,8 +32,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
 
+const DEFAULT_COLLECTION_NAME = "General";
+
 const formSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }).max(50, {message: "El nombre no puede exceder 50 caracteres."}),
+  collectionName: z.string().max(50, {message: "El nombre de la colección no puede exceder 50 caracteres."}).optional(),
 });
 
 interface CreateOutfitFormProps {
@@ -43,7 +46,6 @@ interface CreateOutfitFormProps {
   existingOutfit?: OutfitWithItems | null;
 }
 
-// Las categorías son ahora los mismos tipos que se guardan para las prendas
 const outfitCategories = [
   "Prendas superiores", 
   "Prendas inferiores", 
@@ -61,21 +63,25 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
+  const [openAccordions, setOpenAccordions] = useState<string[]>(outfitCategories); // Open all by default
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
+      collectionName: "",
     },
   });
 
   useEffect(() => {
     if (existingOutfit) {
-      form.reset({ name: existingOutfit.name || "" });
+      form.reset({ 
+        name: existingOutfit.name || "",
+        collectionName: existingOutfit.collectionName || DEFAULT_COLLECTION_NAME 
+      });
       setSelectedItemIds(existingOutfit.itemIds || []);
     } else {
-      form.reset({ name: "" });
+      form.reset({ name: "", collectionName: DEFAULT_COLLECTION_NAME });
       setSelectedItemIds([]);
     }
   }, [existingOutfit, form]);
@@ -84,21 +90,19 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     const lowerSearchTerm = searchTerm.toLowerCase();
     const filtered = wardrobeItems.filter(item => 
       item.name.toLowerCase().includes(lowerSearchTerm) ||
-      item.type.toLowerCase().includes(lowerSearchTerm) || // El type de la prenda ya es la categoría
+      item.type.toLowerCase().includes(lowerSearchTerm) ||
       item.color.toLowerCase().includes(lowerSearchTerm)
     );
 
-    // Agrupar los ítems filtrados por su tipo (que ahora es la categoría)
     const grouped = outfitCategories.map(categoryName => {
       const itemsInCategory = filtered.filter(item => item.type === categoryName);
       return {
-        name: categoryName, // El nombre de la categoría del acordeón
+        name: categoryName,
         items: itemsInCategory
       };
     });
     
-    // Filtrar categorías vacías (a menos que la búsqueda esté activa)
-    return grouped.filter(category => category.items.length > 0 || searchTerm);
+    return grouped.filter(category => category.items.length > 0 || searchTerm.trim() === '');
 
   }, [wardrobeItems, searchTerm]);
 
@@ -119,11 +123,14 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     }
 
     setIsSaving(true);
+    const finalCollectionName = values.collectionName?.trim() ? values.collectionName.trim() : DEFAULT_COLLECTION_NAME;
+
     const outfitData = {
       userId: user.uid,
       name: values.name,
       itemIds: selectedItemIds,
-      description: "", 
+      collectionName: finalCollectionName,
+      description: existingOutfit?.description || "", 
     };
 
     try {
@@ -133,7 +140,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         toast({ title: "¡Atuendo Actualizado!", description: `"${values.name}" ha sido actualizado.` });
       } else {
         await addDoc(collection(db, "outfits"), { ...outfitData, createdAt: serverTimestamp() });
-        toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado.` });
+        toast({ title: "¡Atuendo Creado!", description: `"${values.name}" ha sido creado en la colección "${finalCollectionName}".` });
       }
       onOutfitSaved();
       setOpen(false);
@@ -162,6 +169,19 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
               <FormLabel>Nombre del Atuendo</FormLabel>
               <FormControl>
                 <Input placeholder="Ej: Look casual de viernes" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="collectionName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre de la Colección (opcional)</FormLabel>
+              <FormControl>
+                <Input placeholder={`Ej: Día, Noche, Trabajo (por defecto: ${DEFAULT_COLLECTION_NAME})`} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -250,7 +270,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             </Button>
             <Button type="submit" disabled={isSaving || selectedItemIds.length === 0}>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
-              {existingOutfit ? "Guardar Cambios" : "Previsualizar y Guardar"}
+              {existingOutfit ? "Guardar Cambios" : "Guardar Atuendo"}
             </Button>
           </div>
         </div>

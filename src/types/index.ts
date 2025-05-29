@@ -18,6 +18,7 @@ export interface Outfit {
   name: string;
   description?: string;
   itemIds: string[]; // Array of ClothingItem IDs
+  collectionName: string; // Nombre de la colección a la que pertenece el atuendo
   createdAt: Date;
   updatedAt?: Date;
 }
