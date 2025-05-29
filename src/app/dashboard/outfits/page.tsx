@@ -1,13 +1,15 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, doc, deleteDoc, writeBatch } from "firebase/firestore";
-import { PlusCircle, Trash2, Pencil, Loader2, FolderOpen } from "lucide-react"; // Removed LayoutGrid as it's not used
+import { PlusCircle, Trash2, Pencil, Loader2, FolderOpen, FolderPlus, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ClothingItem, OutfitWithItems } from "@/types";
@@ -19,6 +21,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OutfitDisplayCard } from "@/components/outfits/OutfitDisplayCard";
@@ -49,7 +53,7 @@ export default function OutfitsPage() {
   const [allOutfits, setAllOutfits] = useState<OutfitWithItems[]>([]);
   const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
   const [isLoadingOutfits, setIsLoadingOutfits] = useState(true);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isCreateOutfitFormOpen, setIsCreateOutfitFormOpen] = useState(false);
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [outfitToDelete, setOutfitToDelete] = useState<OutfitWithItems | null>(null);
   const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
@@ -59,6 +63,13 @@ export default function OutfitsPage() {
   const [isDeletingCollection, setIsDeletingCollection] = useState(false);
   const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
   const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+
+  const [isCreateCollectionDialogOpen, setIsCreateCollectionDialogOpen] = useState(false);
+  const [newCollectionNameInput, setNewCollectionNameInput] = useState("");
+  const [selectedOutfitIdsForNewCollection, setSelectedOutfitIdsForNewCollection] = useState<string[]>([]);
+  const [availableOutfitsForNewCollection, setAvailableOutfitsForNewCollection] = useState<OutfitWithItems[]>([]);
+  const [searchTermCreateCollection, setSearchTermCreateCollection] = useState("");
+
 
   useEffect(() => {
     async function fetchWardrobe() {
@@ -128,7 +139,6 @@ export default function OutfitsPage() {
         const currentCollectionNames = Array.from(new Set(outfitsData.map(o => o.collectionName || DEFAULT_COLLECTION_NAME)));
         setOpenAccordionItems(prevOpen => {
           const stillExistingOpen = prevOpen.filter(name => currentCollectionNames.includes(name));
-          // Only add new collections if they weren't previously there; don't re-add if user closed one.
           const newlyAddedCollections = currentCollectionNames.filter(name => !allOutfits.find(o => o.collectionName === name) && !prevOpen.includes(name));
           return [...stillExistingOpen, ...newlyAddedCollections];
         });
@@ -173,20 +183,20 @@ export default function OutfitsPage() {
 
 
   useEffect(() => {
-    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits && !isFormOpen) { 
+    if (groupedOutfits.length > 0 && openAccordionItems.length === 0 && !isLoadingOutfits && !isCreateOutfitFormOpen) { 
       setOpenAccordionItems(groupedOutfits.map(g => g.collectionName));
     }
-  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits, isFormOpen]);
+  }, [groupedOutfits, openAccordionItems.length, isLoadingOutfits, isCreateOutfitFormOpen]);
 
 
-  const handleFormSaved = () => {
-    setIsFormOpen(false);
+  const handleCreateOutfitFormSaved = () => {
+    setIsCreateOutfitFormOpen(false);
     setEditingOutfit(null);
   };
 
-  const handleOpenForm = (outfitToEdit: OutfitWithItems | null = null) => {
+  const handleOpenCreateOutfitForm = (outfitToEdit: OutfitWithItems | null = null) => {
     setEditingOutfit(outfitToEdit);
-    setIsFormOpen(true);
+    setIsCreateOutfitFormOpen(true);
   };
   
   const handleDeleteOutfit = async () => {
@@ -221,6 +231,10 @@ export default function OutfitsPage() {
 
     if (!newName.trim() || newName.trim() === DEFAULT_COLLECTION_NAME) {
       toast({ title: "Nombre Inválido", description: `El nuevo nombre de la colección no puede estar vacío ni ser "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+      return;
+    }
+    if (existingCollectionNames.includes(newName.trim()) && newName.trim() !== oldName) {
+      toast({ title: "Nombre Duplicado", description: `La colección "${newName.trim()}" ya existe.`, variant: "destructive" });
       return;
     }
     if (newName.trim() === oldName) {
@@ -320,6 +334,84 @@ export default function OutfitsPage() {
     }
   };
 
+  const handleOpenCreateCollectionDialog = useCallback(() => {
+    const outfitsInGeneral = allOutfits.filter(
+      (outfit) => !outfit.collectionName || outfit.collectionName === DEFAULT_COLLECTION_NAME
+    );
+    setAvailableOutfitsForNewCollection(outfitsInGeneral);
+    setNewCollectionNameInput("");
+    setSelectedOutfitIdsForNewCollection([]);
+    setSearchTermCreateCollection("");
+    setIsCreateCollectionDialogOpen(true);
+  }, [allOutfits]);
+
+  const handleToggleOutfitForNewCollection = (outfitId: string) => {
+    setSelectedOutfitIdsForNewCollection((prevSelected) =>
+      prevSelected.includes(outfitId)
+        ? prevSelected.filter((id) => id !== outfitId)
+        : [...prevSelected, outfitId]
+    );
+  };
+
+  const handleCreateCollectionAndAssign = async () => {
+    if (!user || isBatchUpdating) return;
+    if (!newCollectionNameInput.trim()) {
+      toast({ title: "Nombre Requerido", description: "Por favor, ingresa un nombre para la nueva colección.", variant: "destructive" });
+      return;
+    }
+    if (newCollectionNameInput.trim() === DEFAULT_COLLECTION_NAME) {
+       toast({ title: "Nombre Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
+      return;
+    }
+     if (existingCollectionNames.includes(newCollectionNameInput.trim())) {
+      toast({ title: "Nombre Duplicado", description: `La colección "${newCollectionNameInput.trim()}" ya existe. Elige otro nombre.`, variant: "destructive" });
+      return;
+    }
+    if (selectedOutfitIdsForNewCollection.length === 0) {
+      toast({ title: "Sin Selección", description: "Por favor, selecciona al menos un atuendo para añadir a la nueva colección.", variant: "destructive" });
+      return;
+    }
+
+    setIsBatchUpdating(true);
+    try {
+      const batch = writeBatch(db);
+      selectedOutfitIdsForNewCollection.forEach((outfitId) => {
+        batch.update(doc(db, "outfits", outfitId), { collectionName: newCollectionNameInput.trim() });
+      });
+      await batch.commit();
+
+      toast({ title: "Colección Creada y Atuendos Asignados", description: `Se creó la colección "${newCollectionNameInput.trim()}" y se movieron ${selectedOutfitIdsForNewCollection.length} atuendo(s).` });
+      
+      // Ensure the new collection accordion item opens
+      if (!openAccordionItems.includes(newCollectionNameInput.trim())) {
+        setOpenAccordionItems(prev => [...prev, newCollectionNameInput.trim()]);
+      }
+      // If items were moved from "General", ensure "General" remains open if it still has items or is needed.
+      const generalStillHasItems = allOutfits.some(o => o.collectionName === DEFAULT_COLLECTION_NAME && !selectedOutfitIdsForNewCollection.includes(o.id));
+      if (!generalStillHasItems && !openAccordionItems.includes(DEFAULT_COLLECTION_NAME) && groupedOutfits.some(g => g.collectionName === DEFAULT_COLLECTION_NAME && g.outfits.length > selectedOutfitIdsForNewCollection.filter(id => allOutfits.find(o => o.id === id)?.collectionName === DEFAULT_COLLECTION_NAME).length)) {
+           // This logic might need refinement based on exact desired behavior for "General" accordion
+      }
+
+
+    } catch (error: any) {
+      console.error("Error creating collection and assigning outfits:", error);
+      toast({ title: "Error", description: `No se pudo crear la colección: ${error.message}`, variant: "destructive" });
+    } finally {
+      setIsCreateCollectionDialogOpen(false);
+      setIsBatchUpdating(false);
+    }
+  };
+  
+  const filteredAvailableOutfits = useMemo(() => {
+    if (!searchTermCreateCollection.trim()) {
+      return availableOutfitsForNewCollection;
+    }
+    const lowerSearchTerm = searchTermCreateCollection.toLowerCase();
+    return availableOutfitsForNewCollection.filter(outfit => 
+      outfit.name.toLowerCase().includes(lowerSearchTerm)
+    );
+  }, [availableOutfitsForNewCollection, searchTermCreateCollection]);
+
 
   const isLoading = isLoadingWardrobe || isLoadingOutfits;
 
@@ -327,14 +419,21 @@ export default function OutfitsPage() {
     <div className="container mx-auto py-8">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
         <h1 className="text-3xl font-bold">Mis Atuendos</h1>
-        <Button onClick={() => handleOpenForm()} disabled={isLoadingWardrobe}>
-          <PlusCircle className="mr-2 h-5 w-5" />
-          Crear Atuendo
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={handleOpenCreateCollectionDialog} variant="outline" disabled={isLoading}>
+            <FolderPlus className="mr-2 h-5 w-5" />
+            Crear Colección
+          </Button>
+          <Button onClick={() => handleOpenCreateOutfitForm()} disabled={isLoadingWardrobe}>
+            <PlusCircle className="mr-2 h-5 w-5" />
+            Crear Atuendo
+          </Button>
+        </div>
       </div>
 
-      <Dialog open={isFormOpen} onOpenChange={(open) => {
-        setIsFormOpen(open);
+      {/* Dialogo para Crear/Editar Atuendo */}
+      <Dialog open={isCreateOutfitFormOpen} onOpenChange={(open) => {
+        setIsCreateOutfitFormOpen(open);
         if (!open) setEditingOutfit(null);
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
@@ -344,16 +443,86 @@ export default function OutfitsPage() {
               {editingOutfit ? "Modifica los detalles de tu atuendo." : "Nombra tu atuendo, asígnale una colección y selecciona prendas de tu guardarropa."}
             </DialogDescription>
           </DialogHeader>
-          {isFormOpen && ( 
+          {isCreateOutfitFormOpen && ( 
             <CreateOutfitForm
               key={editingOutfit ? `edit-${editingOutfit.id}` : 'create-new'}
-              setOpen={setIsFormOpen}
+              setOpen={setIsCreateOutfitFormOpen}
               wardrobeItems={wardrobe}
-              onOutfitSaved={handleFormSaved}
+              onOutfitSaved={handleCreateOutfitFormSaved}
               existingOutfit={editingOutfit}
               existingCollectionNames={existingCollectionNames}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogo para Crear Colección */}
+      <Dialog open={isCreateCollectionDialogOpen} onOpenChange={setIsCreateCollectionDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Crear Nueva Colección</DialogTitle>
+            <DialogDescription>
+              Dale un nombre a tu nueva colección y selecciona los atuendos de &quot;{DEFAULT_COLLECTION_NAME}&quot; que quieres incluir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4 flex-grow flex flex-col overflow-hidden">
+            <div className="space-y-1">
+              <Label htmlFor="newCollectionNameInput">Nombre de la Nueva Colección</Label>
+              <Input
+                id="newCollectionNameInput"
+                value={newCollectionNameInput}
+                onChange={(e) => setNewCollectionNameInput(e.target.value)}
+                placeholder="Ej: Looks de Trabajo"
+                disabled={isBatchUpdating}
+              />
+            </div>
+            <div className="space-y-1 flex-grow flex flex-col overflow-hidden">
+              <Label>Atuendos para añadir (de &quot;{DEFAULT_COLLECTION_NAME}&quot;)</Label>
+              <div className="relative mt-1 mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search-outfits-for-collection"
+                  placeholder="Buscar atuendos..."
+                  value={searchTermCreateCollection}
+                  onChange={(e) => setSearchTermCreateCollection(e.target.value)}
+                  className="pl-10"
+                  disabled={isBatchUpdating}
+                />
+              </div>
+              <ScrollArea className="flex-grow border rounded-md p-1">
+                {filteredAvailableOutfits.length > 0 ? (
+                  <div className="space-y-2 p-2">
+                    {filteredAvailableOutfits.map((outfit) => (
+                      <div key={outfit.id} className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50">
+                        <Checkbox
+                          id={`outfit-select-${outfit.id}`}
+                          checked={selectedOutfitIdsForNewCollection.includes(outfit.id)}
+                          onCheckedChange={() => handleToggleOutfitForNewCollection(outfit.id)}
+                          disabled={isBatchUpdating}
+                        />
+                        <Label htmlFor={`outfit-select-${outfit.id}`} className="flex-grow cursor-pointer text-sm">
+                          {outfit.name}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground p-4 text-center">
+                    {availableOutfitsForNewCollection.length === 0 ? `No hay atuendos en "${DEFAULT_COLLECTION_NAME}" para mover.` : `No se encontraron atuendos que coincidan con tu búsqueda en "${DEFAULT_COLLECTION_NAME}".`}
+                  </p>
+                )}
+              </ScrollArea>
+            </div>
+          </div>
+          <DialogFooter className="mt-auto pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline" disabled={isBatchUpdating}>Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleCreateCollectionAndAssign} disabled={isBatchUpdating || !newCollectionNameInput.trim() || selectedOutfitIdsForNewCollection.length === 0}>
+              {isBatchUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crear y Asignar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       
@@ -403,7 +572,7 @@ export default function OutfitsPage() {
             <Button variant="outline" onClick={() => { setIsEditingCollection(false); setCollectionToEdit(null); }} disabled={isBatchUpdating}>
               Cancelar
             </Button>
-            <Button onClick={handleUpdateCollectionName} disabled={isBatchUpdating || !collectionToEdit?.newName.trim() || collectionToEdit.newName.trim() === DEFAULT_COLLECTION_NAME}>
+            <Button onClick={handleUpdateCollectionName} disabled={isBatchUpdating || !collectionToEdit?.newName.trim() || collectionToEdit.newName.trim() === DEFAULT_COLLECTION_NAME || (existingCollectionNames.includes(collectionToEdit?.newName.trim() || "") && collectionToEdit?.newName.trim() !== collectionToEdit?.oldName) }>
               {isBatchUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar Cambios
             </Button>
@@ -457,7 +626,7 @@ export default function OutfitsPage() {
           <p className="text-muted-foreground mb-6">
             Empieza creando tu primer atuendo para diferentes ocasiones y organízalos en colecciones.
           </p>
-          <Button onClick={() => handleOpenForm()} size="lg" disabled={isLoadingWardrobe}>
+          <Button onClick={() => handleOpenCreateOutfitForm()} size="lg" disabled={isLoadingWardrobe}>
             <PlusCircle className="mr-2 h-5 w-5" />
             Crear mi primer atuendo
           </Button>
@@ -488,7 +657,7 @@ export default function OutfitsPage() {
                                 className="hover:bg-accent/50 h-8 w-8"
                                 disabled={isBatchUpdating}
                                 aria-label={`Editar colección ${collectionName}`}
-                                asChild // Fix: Use asChild to prevent button nesting
+                                asChild 
                             >
                                 <Pencil className="h-4 w-4" />
                             </Button>
@@ -499,7 +668,7 @@ export default function OutfitsPage() {
                                 className="hover:bg-destructive/10 hover:text-destructive h-8 w-8"
                                 disabled={isBatchUpdating}
                                 aria-label={`Eliminar colección ${collectionName}`}
-                                asChild // Fix: Use asChild to prevent button nesting
+                                asChild
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -514,7 +683,7 @@ export default function OutfitsPage() {
                       <OutfitDisplayCard 
                         key={outfit.id} 
                         outfit={outfit} 
-                        onEdit={() => handleOpenForm(outfit)}
+                        onEdit={() => handleOpenCreateOutfitForm(outfit)}
                         onDelete={() => setOutfitToDelete(outfit)}
                       />
                     ))}
@@ -530,3 +699,5 @@ export default function OutfitsPage() {
     </div>
   );
 }
+
+    
