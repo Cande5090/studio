@@ -278,7 +278,7 @@ export function AddClothingItemForm({ itemToEdit, onItemSaved, setOpen }: AddClo
           name="image"
           render={({ field }) => ( 
             <FormItem>
-              <FormLabel>Imagen de la Prenda (Max. ${MAX_FILE_SIZE_MB}MB para Base64 en Firestore)</FormLabel>
+              <FormLabel>Imagen de la Prenda</FormLabel>
               <FormControl>
                 <div className="flex flex-col items-center space-y-4">
                   <label
