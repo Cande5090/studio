@@ -94,6 +94,8 @@ export default function SuggestionsPage() {
             itemIds: data.itemIds || [],
             items: [], // Not populating full items here to save reads, assuming not needed for collection names
             createdAt: (data.createdAt as Timestamp)?.toDate ? (data.createdAt as Timestamp).toDate() : new Date(),
+            description: data.description || "",
+            isFavorite: data.isFavorite || false,
           } as OutfitWithItems;
         });
         setAllOutfits(outfitsData);
@@ -172,7 +174,7 @@ export default function SuggestionsPage() {
       const result = await Promise.race([suggestionPromise, timeoutPromise]);
       setSuggestion(result);
 
-    } catch (error: any)
+    } catch (error: any) { // Added opening brace here
       console.error("Error sugiriendo atuendo:", error);
       let errorMessage = "No se pudo sugerir un atuendo. Inténtalo de nuevo.";
       if (error.message === "La sugerencia de la IA ha tardado demasiado.") {
@@ -230,7 +232,7 @@ export default function SuggestionsPage() {
             suggestion={suggestion} 
             wardrobe={wardrobe} 
             occasion={lastOccasion} 
-            existingCollectionNames={existingCollectionNames} // Pass existing collection names
+            existingCollectionNames={existingCollectionNames} 
           />
           {lastOccasion && ( 
             <div className="mt-6 text-center">
