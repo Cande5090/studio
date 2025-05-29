@@ -34,7 +34,7 @@ export function OutfitDisplayCard({ outfit, onEdit, onDelete, onToggleFavorite }
                 variant="ghost" 
                 size="icon" 
                 onClick={() => onToggleFavorite(outfit.id, !!outfit.isFavorite)}
-                className="ml-2 shrink-0 hover:bg-transparent"
+                className="ml-2 shrink-0" // Removed hover:bg-transparent to allow default ghost hover
                 aria-label={outfit.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
             >
                 <Heart className={cn("h-6 w-6 transition-all", outfit.isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground hover:text-red-500 hover:fill-red-100")} />
