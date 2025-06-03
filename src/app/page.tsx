@@ -87,15 +87,14 @@ export default function HomePage() {
           {/* Right Column: Image */}
           <div className="lg:col-span-2 flex justify-center lg:justify-end relative mt-8 lg:mt-0">
             <div className="bg-card p-3 sm:p-4 rounded-lg shadow-xl relative w-full max-w-sm sm:max-w-md lg:max-w-none">
-              {/* Overlay text removed */}
               <div className="relative aspect-[5/7] w-full">
                 <Image
-                  src="https://placehold.co/600x840.png"
-                  alt="Imagen principal - POR FAVOR, REEMPLAZA ESTA URL CON LA DE TU IMAGEN"
+                  src="/retrato-moda-mujer-joven-elegante1.png"
+                  alt="Mujer joven elegante posando con estilo"
                   layout="fill"
                   objectFit="cover"
                   className="rounded-md"
-                  data-ai-hint="hero image"
+                  data-ai-hint="fashion model"
                   priority
                 />
               </div>
