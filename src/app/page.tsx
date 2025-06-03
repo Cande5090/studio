@@ -87,17 +87,15 @@ export default function HomePage() {
           {/* Right Column: Image */}
           <div className="lg:col-span-2 flex justify-center lg:justify-end relative mt-8 lg:mt-0">
             <div className="bg-card p-3 sm:p-4 rounded-lg shadow-xl relative w-full max-w-sm sm:max-w-md lg:max-w-none">
-              <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-background/70 backdrop-blur-sm text-foreground text-xs px-2 py-1 rounded-full shadow-sm z-10">
-                Modelo de Outfitly
-              </div>
+              {/* Overlay text removed */}
               <div className="relative aspect-[5/7] w-full">
                 <Image
-                  src="https://storage.googleapis.com/outfitly-app-assets/homepage-hero-new-v2.png"
-                  alt="Modelo de Outfitly con un elegante vestido y chaqueta en tonos claros, con un fondo de diseño abstracto"
+                  src="https://placehold.co/600x840.png"
+                  alt="Imagen principal - POR FAVOR, REEMPLAZA ESTA URL CON LA DE TU IMAGEN"
                   layout="fill"
                   objectFit="cover"
                   className="rounded-md"
-                  data-ai-hint="fashion model"
+                  data-ai-hint="hero image"
                   priority
                 />
               </div>
