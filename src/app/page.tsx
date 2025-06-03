@@ -20,7 +20,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-900 text-white font-sans items-center justify-center">
+      <div className="flex flex-col min-h-screen text-white font-sans items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando...</p>
       </div>
@@ -29,7 +29,7 @@ export default function HomePage() {
 
   if (user) { 
     return (
-      <div className="flex flex-col min-h-screen bg-gray-900 text-white font-sans items-center justify-center">
+      <div className="flex flex-col min-h-screen text-white font-sans items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
       </div>
@@ -37,7 +37,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans"> {/* Removed bg-gray-900 */}
       <div className="bg-[#4A3B2A] p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-6xl"> {/* Dark brown intermediate background */}
         <div className="bg-background p-6 sm:p-8 md:p-10 rounded-xl text-foreground"> {/* Light beige content area */}
           {/* Header */}
