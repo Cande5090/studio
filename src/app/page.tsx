@@ -69,15 +69,15 @@ export default function HomePage() {
       {/* Main Content - New Centered Design */}
       <main className="flex-grow flex flex-col items-center justify-center text-center px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <p 
-          className="text-xl md:text-2xl text-foreground mb-3 md:mb-4" 
+          className="text-2xl md:text-3xl text-foreground mb-3 md:mb-4 tracking-wide" 
           style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
         >
           Menos dudas frente al espejo
         </p>
-        <div className="flex items-center justify-center w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl my-4 md:my-6">
+        <div className="flex items-center justify-center w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl my-4 md:my-6">
           <hr className="flex-grow border-t border-foreground/60" />
           <h1
-            className="text-6xl xs:text-7xl sm:text-8xl md:text-9xl font-bold text-foreground mx-4 sm:mx-6 md:mx-8 whitespace-nowrap"
+            className="text-7xl xs:text-8xl sm:text-9xl md:text-[10rem] lg:text-[11rem] font-bold text-foreground mx-4 sm:mx-6 md:mx-8 whitespace-nowrap tracking-wide"
             style={{ fontFamily: 'Fashion Wacks, Georgia, serif' }}
           >
             Outfitly
@@ -85,7 +85,7 @@ export default function HomePage() {
           <hr className="flex-grow border-t border-foreground/60" />
         </div>
         <p 
-          className="text-xl md:text-2xl text-foreground mt-3 md:mt-4" 
+          className="text-2xl md:text-3xl text-foreground mt-3 md:mt-4 tracking-wide" 
           style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
         >
           Todo en un solo lugar
