@@ -92,12 +92,12 @@ export default function HomePage() {
               </div>
               <div className="relative aspect-[5/7] w-full">
                 <Image
-                  src="https://storage.googleapis.com/projectx-dev-images/idx-assets/7a8944f5-97f8-4f2b-9107-09138fc990b2.png"
-                  alt="Modelo de Outfitly presentando un elegante conjunto de vestido y saco color claro"
+                  src="https://storage.googleapis.com/outfitly-app-assets/homepage-hero-new-v2.png"
+                  alt="Modelo de Outfitly con un elegante vestido y chaqueta en tonos claros, con un fondo de diseño abstracto"
                   layout="fill"
                   objectFit="cover"
                   className="rounded-md"
-                  data-ai-hint="woman elegant outfit"
+                  data-ai-hint="fashion model"
                   priority
                 />
               </div>
