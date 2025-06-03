@@ -1,6 +1,23 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: 'Fashion Wacks';
+  src: url('/fonts/FashionWacks-Regular.woff2') format('woff2'); /* Reemplaza 'FashionWacks-Regular.woff2' con el nombre real de tu archivo de fuente */
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Wilkysta';
+  src: url('/fonts/Wilkysta-Regular.woff2') format('woff2'); /* Reemplaza 'Wilkysta-Regular.woff2' con el nombre real de tu archivo de fuente */
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;

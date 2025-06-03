@@ -2,12 +2,8 @@
 "use client";
 
 import Link from 'next/link';
-// Image import is no longer needed for this page design
-// import Image from 'next/image'; 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-// Logo import is no longer needed in the header for this design
-// import { Logo } from '@/components/Logo'; 
 import { Button } from '@/components/ui/button';
 import { LogIn, UserPlus, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,8 +40,7 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
       <header className="container mx-auto py-5 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-end items-center"> {/* Changed to justify-end as logo is removed */}
-          {/* Logo removed from header */}
+        <div className="flex justify-end items-center">
           <nav className="space-x-2 sm:space-x-3">
             <Button 
               variant="default" 
@@ -58,9 +53,9 @@ export default function HomePage() {
               </Link>
             </Button>
             <Button 
-              variant="default" // Uses primary color by default
+              variant="default"
               asChild 
-              className="text-sm sm:text-base" // bg-primary hover:bg-primary/90 text-primary-foreground are default
+              className="text-sm sm:text-base"
             >
               <Link href="/register">
                 <UserPlus className="mr-2 h-4 w-4" />
@@ -75,7 +70,7 @@ export default function HomePage() {
       <main className="flex-grow flex flex-col items-center justify-center text-center px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <p 
           className="text-xl md:text-2xl text-foreground mb-3 md:mb-4" 
-          style={{ fontFamily: 'Georgia, serif' }}
+          style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
         >
           Menos dudas frente al espejo
         </p>
@@ -83,7 +78,7 @@ export default function HomePage() {
           <hr className="flex-grow border-t border-foreground/60" />
           <h1
             className="text-6xl xs:text-7xl sm:text-8xl md:text-9xl font-bold text-foreground mx-4 sm:mx-6 md:mx-8 whitespace-nowrap"
-            style={{ fontFamily: 'Georgia, serif' }}
+            style={{ fontFamily: 'Fashion Wacks, Georgia, serif' }}
           >
             Outfitly
           </h1>
@@ -91,7 +86,7 @@ export default function HomePage() {
         </div>
         <p 
           className="text-xl md:text-2xl text-foreground mt-3 md:mt-4" 
-          style={{ fontFamily: 'Georgia, serif' }}
+          style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
         >
           Todo en un solo lugar
         </p>
