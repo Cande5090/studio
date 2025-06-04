@@ -150,26 +150,13 @@ export default function OutfitsPage() {
           });
 
         setOpenAccordionItems(prevOpen => {
-          const newOpenSet = new Set(prevOpen.filter(name => currentCollectionNames.includes(name)));
-          
-          if (!initialAccordionLoadDoneRef.current && currentCollectionNames.length > 0) {
-            newOpenSet.add(FAVORITES_COLLECTION_NAME); 
-            if (outfitsData.some(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim() === DEFAULT_COLLECTION_NAME)) {
-              newOpenSet.add(DEFAULT_COLLECTION_NAME); 
-            }
+          if (!initialAccordionLoadDoneRef.current) {
             initialAccordionLoadDoneRef.current = true;
-          } else if (initialAccordionLoadDoneRef.current) {
-            // If a new collection is added (not "Favorites" or "General"), open it.
-            const existingPrevOpen = new Set(prevOpen);
-            currentCollectionNames.forEach(name => {
-              if (!existingPrevOpen.has(name) && name !== FAVORITES_COLLECTION_NAME && name !== DEFAULT_COLLECTION_NAME) {
-                newOpenSet.add(name);
-              }
-            });
-             // Ensure Favorites and General are open if they exist
-            if (currentCollectionNames.includes(FAVORITES_COLLECTION_NAME) && !existingPrevOpen.has(FAVORITES_COLLECTION_NAME)) newOpenSet.add(FAVORITES_COLLECTION_NAME);
-            if (currentCollectionNames.includes(DEFAULT_COLLECTION_NAME) && !existingPrevOpen.has(DEFAULT_COLLECTION_NAME)) newOpenSet.add(DEFAULT_COLLECTION_NAME);
+            return []; // Start with all accordions closed on initial load
           }
+          // For subsequent updates (e.g., data refresh, collection deleted elsewhere from another tab)
+          // Keep open only those collections that still exist and were previously open.
+          const newOpenSet = new Set(prevOpen.filter(name => currentCollectionNames.includes(name)));
           return Array.from(newOpenSet).sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
@@ -188,7 +175,8 @@ export default function OutfitsPage() {
     } else {
       setAllOutfits([]);
       setIsLoadingOutfits(false);
-       initialAccordionLoadDoneRef.current = false; 
+      initialAccordionLoadDoneRef.current = false; 
+      setOpenAccordionItems([]); // Reset open items on logout
     }
   }, [user, wardrobe, toast]);
 
@@ -232,7 +220,7 @@ export default function OutfitsPage() {
       new Set(
         allOutfits
           .map(o => (o.collectionName || DEFAULT_COLLECTION_NAME).trim())
-          .filter(name => name !== "") // Filter out names that became empty after trim
+          .filter(name => name !== "") 
       )
     )
     .filter(name => name !== FAVORITES_COLLECTION_NAME)
@@ -329,11 +317,12 @@ export default function OutfitsPage() {
       toast({ title: "Colección Actualizada", description: `La colección "${oldName}" ha sido renombrada a "${trimmedNewCollectionName}".` });
       
       setOpenAccordionItems(prev => {
-        const updated = prev.map(name => name === oldName ? trimmedNewCollectionName : name);
-        if (!updated.includes(trimmedNewCollectionName)) { 
-            updated.push(trimmedNewCollectionName);
+        const oldWasOpen = prev.includes(oldName);
+        let newOpenItems = prev.filter(name => name !== oldName);
+        if (oldWasOpen) {
+          newOpenItems.push(trimmedNewCollectionName);
         }
-        return Array.from(new Set(updated)).sort((a, b) => { // Use Set for uniqueness
+        return Array.from(new Set(newOpenItems)).sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
             if (a === DEFAULT_COLLECTION_NAME) return -1;
@@ -390,13 +379,8 @@ export default function OutfitsPage() {
       toast({ title: "Colección Eliminada", description: `La colección "${collectionToDelete}" ha sido eliminada. Sus atuendos se movieron a "${DEFAULT_COLLECTION_NAME}".` });
       setOpenAccordionItems(prev => {
         const updated = prev.filter(name => name !== collectionToDelete);
-        if (!updated.includes(DEFAULT_COLLECTION_NAME)) {
-          updated.push(DEFAULT_COLLECTION_NAME);
-        }
-        if (!updated.includes(FAVORITES_COLLECTION_NAME) && allOutfits.some(o => o.isFavorite)) {
-          updated.push(FAVORITES_COLLECTION_NAME);
-        }
-        return Array.from(new Set(updated)).sort((a, b) => { // Use Set for uniqueness
+        // Do not automatically open DEFAULT_COLLECTION_NAME or FAVORITES_COLLECTION_NAME
+        return Array.from(new Set(updated)).sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
             if (a === DEFAULT_COLLECTION_NAME) return -1;
@@ -466,10 +450,7 @@ export default function OutfitsPage() {
       
       setOpenAccordionItems(prev => {
         const updated = new Set(prev);
-        updated.add(trimmedNewCollectionName);
-         if (!updated.has(FAVORITES_COLLECTION_NAME) && allOutfits.some(o => o.isFavorite)) {
-            updated.add(FAVORITES_COLLECTION_NAME);
-        }
+        updated.add(trimmedNewCollectionName); // Open the newly created collection
         return Array.from(updated).sort((a, b) => {
             if (a === FAVORITES_COLLECTION_NAME) return -1;
             if (b === FAVORITES_COLLECTION_NAME) return 1;
@@ -503,7 +484,6 @@ export default function OutfitsPage() {
     const outfitRef = doc(db, "outfits", outfitId);
     try {
       await updateDoc(outfitRef, { isFavorite: !currentIsFavorite });
-      // Optimistic update or rely on onSnapshot for UI changes
       toast({
         title: !currentIsFavorite ? "Atuendo añadido a Favoritos" : "Atuendo quitado de Favoritos",
         description: `"${allOutfits.find(o => o.id === outfitId)?.name}" ha sido actualizado.`,
@@ -533,7 +513,6 @@ export default function OutfitsPage() {
         </div>
       </div>
 
-      {/* Dialogo para Crear/Editar Atuendo */}
       <Dialog open={isCreateOutfitFormOpen} onOpenChange={(open) => {
         setIsCreateOutfitFormOpen(open);
         if (!open) setEditingOutfit(null);
@@ -558,7 +537,6 @@ export default function OutfitsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogo para Crear Colección */}
       <Dialog open={isCreateCollectionDialogOpen} onOpenChange={setIsCreateCollectionDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader>
