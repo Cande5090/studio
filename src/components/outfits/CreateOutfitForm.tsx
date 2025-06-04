@@ -277,10 +277,10 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
           control={form.control}
           name="itemIds"
           render={() => (
-            <FormItem className="flex-grow flex flex-col overflow-hidden">
+            <FormItem className="flex-grow flex flex-col"> {/* MODIFICADO: overflow-hidden quitado */}
               <FormLabel>Prendas Seleccionadas ({currentItemIds.length})</FormLabel>
               <FormMessage className="pb-1"/>
-              <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+              <div className="space-y-2 border rounded-md p-2 bg-muted/20 mb-3">
                 {clothingCategoriesForForm.map(category => (
                   <Button
                     type="button"
@@ -299,6 +299,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                   </Button>
                 ))}
               </div>
+              
               {selectedItemsDetails.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs text-muted-foreground mb-1">Prendas en este atuendo:</p>
