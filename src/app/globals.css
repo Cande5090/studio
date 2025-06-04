@@ -25,7 +25,7 @@ body {
 
 @layer base {
   :root {
-    --background: 60 56% 94%; /* Light Beige (#F5F5DC) */
+    --background: 31 51% 92%; /* New Beige (#F5EBE0) */
     --foreground: 25 25% 20%; /* Dark Brown/Gray for text */
 
     --card: 0 0% 100%; /* White cards for contrast */
@@ -35,7 +35,7 @@ body {
     --popover-foreground: 25 25% 20%;
 
     --primary: 35 26% 52%; /* Muted Brown (#A68B64) */
-    --primary-foreground: 60 56% 94%; /* Light Beige for text on primary */
+    --primary-foreground: 31 51% 92%; /* New Beige for text on primary */
 
     --secondary: 34 43% 80%; /* Lighter Soft Beige */
     --secondary-foreground: 25 25% 20%;
@@ -59,7 +59,7 @@ body {
     --sidebar-background: 35 26% 90%; /* Lighter Muted Brown/Darker Beige */
     --sidebar-foreground: 25 25% 20%;
     --sidebar-primary: 35 26% 52%; /* Muted Brown */
-    --sidebar-primary-foreground: 60 56% 94%; /* Light Beige */
+    --sidebar-primary-foreground: 31 51% 92%; /* New Beige */
     --sidebar-accent: 34 43% 75%; /* Lighter Soft Beige */
     --sidebar-accent-foreground: 25 25% 20%;
     --sidebar-border: 35 26% 80%;
@@ -73,27 +73,26 @@ body {
   }
 
   .dark {
-    /* Dark theme can be adjusted later if needed, for now mirroring light but inverted */
     --background: 25 25% 15%;
-    --foreground: 60 56% 94%;
+    --foreground: 31 51% 92%; /* New Beige */
 
     --card: 25 25% 20%;
-    --card-foreground: 60 56% 94%;
+    --card-foreground: 31 51% 92%; /* New Beige */
 
     --popover: 25 25% 10%;
-    --popover-foreground: 60 56% 94%;
+    --popover-foreground: 31 51% 92%; /* New Beige */
 
     --primary: 34 43% 67%; /* Soft Beige as primary in dark */
-    --primary-foreground: 25 25% 10%;
+    --primary-foreground: 25 25% 10%; /* Dark text on dark primary, unchanged */
 
     --secondary: 35 26% 30%;
-    --secondary-foreground: 60 56% 94%;
+    --secondary-foreground: 31 51% 92%; /* New Beige */
 
     --muted: 35 26% 25%;
-    --muted-foreground: 60 56% 80%;
+    --muted-foreground: 31 51% 78%; /* Adjusted derived from New Beige */
 
     --accent: 35 26% 52%; /* Muted Brown as accent in dark */
-    --accent-foreground: 60 56% 94%;
+    --accent-foreground: 31 51% 92%; /* New Beige */
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
@@ -103,11 +102,11 @@ body {
     --ring: 34 43% 67%;
 
     --sidebar-background: 25 25% 20%;
-    --sidebar-foreground: 60 56% 94%;
+    --sidebar-foreground: 31 51% 92%; /* New Beige */
     --sidebar-primary: 34 43% 67%;
-    --sidebar-primary-foreground: 25 25% 10%;
+    --sidebar-primary-foreground: 25 25% 10%; /* Dark text on dark sidebar primary, unchanged */
     --sidebar-accent: 35 26% 40%;
-    --sidebar-accent-foreground: 60 56% 94%;
+    --sidebar-accent-foreground: 31 51% 92%; /* New Beige */
     --sidebar-border: 35 26% 30%;
     --sidebar-ring: 34 43% 67%;
   }
