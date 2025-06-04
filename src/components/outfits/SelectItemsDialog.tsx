@@ -17,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-// ScrollArea import removed
 import { Label } from "@/components/ui/label";
 import type { ClothingItem } from "@/types";
 
@@ -61,9 +60,8 @@ export function SelectItemsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Contenedor principal para el input y la lista de items, ahora este div se encargará del scroll */}
         <div className="py-4 flex flex-col flex-1 min-h-0 overflow-y-auto">
-          <div className="mb-4"> {/* Contenedor del Input de búsqueda */}
+          <div className="mb-4">
             <Label htmlFor="search-items-dialog" className="sr-only">Buscar en {categoryName}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -78,7 +76,6 @@ export function SelectItemsDialog({
           </div>
 
           {itemsInCategory.length > 0 ? (
-            // ScrollArea removida, el div padre (con overflow-y-auto) maneja el scroll
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3">
               {itemsInCategory.map((item) => {
                 const checkboxId = `checkbox-dialog-item-${item.id}`;
@@ -113,7 +110,7 @@ export function SelectItemsDialog({
               })}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground border rounded-md min-h-0"> {/* flex-1 para que tome espacio si no hay items */}
+            <div className="flex-1 flex items-center justify-center text-muted-foreground border rounded-md min-h-0">
               <p>
                 {searchTerm
                   ? `No hay prendas en "${categoryName}" que coincidan con tu búsqueda.`
@@ -124,6 +121,9 @@ export function SelectItemsDialog({
         </div>
 
         <DialogFooter className="mt-auto pt-4 border-t">
+          <DialogClose asChild>
+            <Button type="button" variant="outline">Cancelar</Button>
+          </DialogClose>
           <DialogClose asChild>
             <Button type="button">Hecho</Button>
           </DialogClose>
