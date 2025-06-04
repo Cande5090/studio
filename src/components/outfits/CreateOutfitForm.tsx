@@ -317,7 +317,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 <FormItem className="flex-grow flex flex-col overflow-hidden"> {/* This is the parent of ScrollArea */}
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
                      <FormMessage className="pb-1"/> {/* Para mostrar el error "Debes seleccionar al menos una prenda." */}
-                    <ScrollArea className="h-full border rounded-md p-1 min-h-0"> {/* This is the ScrollArea with h-full and min-h-0, flex-grow removed */}
+                    <ScrollArea className="flex-grow border rounded-md p-1 min-h-0"> {/* ScrollArea now uses flex-grow */}
                     <Accordion
                         type="multiple"
                         className="w-full"
