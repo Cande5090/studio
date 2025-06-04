@@ -2,31 +2,22 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, FormProvider } from "react-hook-form"; // Import FormProvider
+import { useForm, FormProvider } from "react-hook-form";
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
-import { Eye, Loader2, Search, PlusCircle } from "lucide-react";
+import { Eye, Loader2, Search, PlusCircle, ChevronRight } from "lucide-react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
-  // Form, // No longer import Form from here
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"; // Keep these
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import {
   Select,
   SelectContent,
@@ -38,6 +29,8 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
+import { SelectItemsDialog } from "./SelectItemsDialog"; // Nuevo componente
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const DEFAULT_COLLECTION_NAME = "General";
 const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
@@ -46,8 +39,8 @@ const clothingCategoriesForForm = ["Prendas superiores", "Prendas inferiores", "
 const formSchema = z.object({
   name: z.string().min(3, { message: "El nombre debe tener al menos 3 caracteres." }).max(50, {message: "El nombre no puede exceder 50 caracteres."}),
   itemIds: z.array(z.string()).min(1, { message: "Debes seleccionar al menos una prenda." }),
-  collectionSelection: z.string().optional(), // Para el Select
-  newCollectionNameInput: z.string().optional(), // Para el Input condicional
+  collectionSelection: z.string().optional(),
+  newCollectionNameInput: z.string().optional(),
 });
 
 interface CreateOutfitFormProps {
@@ -61,10 +54,12 @@ interface CreateOutfitFormProps {
 export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existingOutfit, existingCollectionNames }: CreateOutfitFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
+
+  const [isSelectItemsDialogOpen, setIsSelectItemsDialogOpen] = useState(false);
+  const [categoryForSelection, setCategoryForSelection] = useState<string | null>(null);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -84,7 +79,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       form.reset({
         name: existingOutfit.name || "",
         itemIds: existingOutfit.itemIds || [],
-        collectionSelection: DEFAULT_COLLECTION_NAME, // Se ajustará abajo
+        collectionSelection: DEFAULT_COLLECTION_NAME,
         newCollectionNameInput: "",
       });
 
@@ -92,13 +87,12 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       if (existingCollectionNames.includes(currentOutfitCollection) || currentOutfitCollection === DEFAULT_COLLECTION_NAME) {
         form.setValue("collectionSelection", currentOutfitCollection);
         setShowNewCollectionInput(false);
-      } else { 
+      } else {
         form.setValue("collectionSelection", CREATE_NEW_COLLECTION_VALUE);
         form.setValue("newCollectionNameInput", currentOutfitCollection);
         setShowNewCollectionInput(true);
       }
-      setOpenAccordions([]); 
-    } else { 
+    } else {
       form.reset({
         name: "",
         itemIds: [],
@@ -106,7 +100,6 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         newCollectionNameInput: "",
       });
       setShowNewCollectionInput(false);
-      setOpenAccordions([]); 
     }
   }, [existingOutfit, form, existingCollectionNames]);
 
@@ -115,40 +108,26 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       setShowNewCollectionInput(true);
     } else {
       setShowNewCollectionInput(false);
-      form.setValue("newCollectionNameInput", ""); 
+      form.setValue("newCollectionNameInput", "");
     }
   }, [collectionSelectionValue, form]);
 
-
-  const filteredAndGroupedItems = useMemo(() => {
-    const lowerSearchTerm = searchTerm.toLowerCase();
-    const filtered = wardrobeItems.filter(item =>
-      item.name.toLowerCase().includes(lowerSearchTerm) ||
-      (item.type && item.type.toLowerCase().includes(lowerSearchTerm)) ||
-      (item.color && item.color.toLowerCase().includes(lowerSearchTerm))
-    );
-
-    const grouped: { [key: string]: ClothingItem[] } = {};
-    clothingCategoriesForForm.forEach(categoryName => grouped[categoryName] = []);
-
-    filtered.forEach(item => {
-      const categoryKey = item.type && clothingCategoriesForForm.includes(item.type) ? item.type : "Otros";
-      grouped[categoryKey].push(item);
-    });
-
-    return clothingCategoriesForForm.map(categoryName => ({
-      name: categoryName,
-      items: grouped[categoryName] || []
-    })).filter(category => category.items.length > 0 || searchTerm.trim() === '');
-  }, [wardrobeItems, searchTerm]);
-
-  const handleItemSelect = (itemId: string) => {
+  const handleItemSelectToggle = (itemId: string) => {
     const currentSelectedIds = form.getValues("itemIds") || [];
     const newSelectedIds = currentSelectedIds.includes(itemId)
       ? currentSelectedIds.filter(id => id !== itemId)
       : [...currentSelectedIds, itemId];
     form.setValue("itemIds", newSelectedIds, { shouldValidate: true, shouldDirty: true });
   };
+
+  const openSelectItemsDialog = (category: string) => {
+    setCategoryForSelection(category);
+    setIsSelectItemsDialogOpen(true);
+  };
+
+  const selectedItemsDetails = useMemo(() => {
+    return currentItemIds.map(id => wardrobeItems.find(item => item.id === id)).filter(Boolean) as ClothingItem[];
+  }, [currentItemIds, wardrobeItems]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -177,7 +156,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       finalCollectionName = values.collectionSelection;
     }
 
-    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { 
+    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) {
         finalCollectionName = DEFAULT_COLLECTION_NAME;
     }
 
@@ -187,7 +166,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         name: values.name,
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
-        isFavorite: existingOutfit?.isFavorite || false, 
+        isFavorite: existingOutfit?.isFavorite || false,
         description: existingOutfit?.description || "",
         updatedAt: serverTimestamp(),
     };
@@ -221,7 +200,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   }
 
   return (
-    <FormProvider {...form}> 
+    <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow overflow-hidden">
         <FormField
           control={form.control}
@@ -294,90 +273,60 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
           )}
         </div>
 
-        <div>
-          <FormLabel htmlFor="search-prendas-outfit-form">Buscar Prendas</FormLabel>
-          <div className="relative mt-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="search-prendas-outfit-form"
-              placeholder="Buscar por nombre, categoría, color..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
         <FormField
-            control={form.control}
-            name="itemIds"
-            render={() => ( 
-                <FormItem className="flex-grow flex flex-col overflow-hidden">
-                    <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
-                     <FormMessage className="pb-1"/>
-                    <div className="flex-grow min-h-0 overflow-hidden">
-                        <ScrollArea className="h-full border rounded-md p-1">
-                            <Accordion
-                                type="multiple"
-                                className="w-full"
-                                value={openAccordions}
-                                onValueChange={setOpenAccordions}
-                            >
-                                {filteredAndGroupedItems.map(category => (
-                                <AccordionItem value={category.name} key={category.name}>
-                                    <AccordionTrigger className="px-3 py-2 hover:bg-muted/50 rounded-md">
-                                    {category.name} ({category.items.length} prenda(s))
-                                    </AccordionTrigger>
-                                    <AccordionContent className="px-1 pt-1 pb-2">
-                                    {category.items.length > 0 ? (
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
-                                        {category.items.map(item => {
-                                            const checkboxId = `checkbox-outfit-item-${item.id}`;
-                                            return (
-                                            <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
-                                                <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10 cursor-pointer">
-                                                <Checkbox
-                                                    id={checkboxId}
-                                                    checked={currentItemIds.includes(item.id)}
-                                                    onCheckedChange={() => handleItemSelect(item.id)}
-                                                    className="h-5 w-5"
-                                                    aria-labelledby={`item-label-${item.id}`}
-                                                />
-                                                </label>
-                                                <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
-                                                <Image
-                                                    src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
-                                                    alt={item.name}
-                                                    layout="fill"
-                                                    objectFit="cover"
-                                                    data-ai-hint="clothing item"
-                                                />
-                                                </label>
-                                                <label htmlFor={checkboxId} id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium cursor-pointer">
-                                                {item.name}
-                                                </label>
-                                            </div>
-                                            );
-                                        })}
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground p-4 text-center">No hay prendas en esta categoría {searchTerm && "que coincidan con tu búsqueda"}.</p>
-                                    )}
-                                    </AccordionContent>
-                                </AccordionItem>
-                                ))}
-                                {wardrobeItems.length > 0 && filteredAndGroupedItems.length === 0 && searchTerm && (
-                                    <p className="text-sm text-muted-foreground p-4 text-center">No se encontraron prendas que coincidan con &quot;{searchTerm}&quot;.</p>
-                                )}
-                                {wardrobeItems.length === 0 && (
-                                    <p className="text-sm text-muted-foreground p-4 text-center">Tu guardarropa está vacío. Añade prendas para poder crear atuendos.</p>
-                                )}
-                            </Accordion>
-                        </ScrollArea>
+          control={form.control}
+          name="itemIds"
+          render={() => (
+            <FormItem className="flex-grow flex flex-col overflow-hidden">
+              <FormLabel>Prendas Seleccionadas ({currentItemIds.length})</FormLabel>
+              <FormMessage className="pb-1"/>
+              <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+                {clothingCategoriesForForm.map(category => (
+                  <Button
+                    type="button"
+                    key={category}
+                    variant="outline"
+                    className="w-full justify-between hover:bg-accent/20"
+                    onClick={() => openSelectItemsDialog(category)}
+                  >
+                    <span>{category}</span>
+                    <div className="flex items-center">
+                       <span className="text-xs text-muted-foreground mr-2">
+                        ({currentItemIds.filter(id => wardrobeItems.find(item => item.id === id)?.type === category).length} sel.)
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
                     </div>
-                </FormItem>
-            )}
+                  </Button>
+                ))}
+              </div>
+              {selectedItemsDetails.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-muted-foreground mb-1">Prendas en este atuendo:</p>
+                  <ScrollArea className="h-20 border rounded-md p-1">
+                    <div className="p-1 space-y-1">
+                    {selectedItemsDetails.map(item => (
+                      <div key={item.id} className="text-xs p-1 bg-secondary/50 rounded-sm truncate">
+                        {item.name} <span className="text-muted-foreground">({item.type})</span>
+                      </div>
+                    ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </FormItem>
+          )}
         />
+
+        {categoryForSelection && (
+          <SelectItemsDialog
+            open={isSelectItemsDialogOpen}
+            onOpenChange={setIsSelectItemsDialogOpen}
+            categoryName={categoryForSelection}
+            allItems={wardrobeItems}
+            selectedItemIds={currentItemIds}
+            onItemToggle={handleItemSelectToggle}
+          />
+        )}
 
         <div className="mt-auto pt-4 space-y-3 border-t">
            <div className="flex justify-end gap-2">
@@ -394,5 +343,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
-
-    
