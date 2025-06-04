@@ -222,7 +222,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 
   return (
     <FormProvider {...form}> 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow overflow-hidden">
         <FormField
           control={form.control}
           name="name"
