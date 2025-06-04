@@ -97,6 +97,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         form.setValue("newCollectionNameInput", currentOutfitCollection);
         setShowNewCollectionInput(true);
       }
+      setOpenAccordions([]); // Cerrar acordeones por defecto al editar
     } else { // Modo Añadir
       form.reset({
         name: "",
@@ -161,17 +162,14 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       const trimmedNewCollection = values.newCollectionNameInput?.trim();
       if (!trimmedNewCollection) {
         form.setError("newCollectionNameInput", { type: "manual", message: "El nombre de la nueva colección no puede estar vacío." });
-        // toast({ title: "Nombre de Colección Requerido", description: "Si creas una nueva colección, debes darle un nombre.", variant: "destructive" });
         return;
       }
        if (trimmedNewCollection === DEFAULT_COLLECTION_NAME) {
          form.setError("newCollectionNameInput", { type: "manual", message: `No puedes llamar a una nueva colección "${DEFAULT_COLLECTION_NAME}".` });
-        // toast({ title: "Nombre de Colección Inválido", description: `No puedes crear una colección llamada "${DEFAULT_COLLECTION_NAME}".`, variant: "destructive" });
         return;
       }
       if (existingCollectionNames.includes(trimmedNewCollection) && (!existingOutfit || existingOutfit.collectionName !== trimmedNewCollection) ) {
          form.setError("newCollectionNameInput", { type: "manual", message: `La colección "${trimmedNewCollection}" ya existe.` });
-        // toast({ title: "Colección Duplicada", description: `La colección "${trimmedNewCollection}" ya existe. Elige otro nombre o selecciónala de la lista.`, variant: "destructive" });
         return;
       }
       finalCollectionName = trimmedNewCollection;
@@ -179,7 +177,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       finalCollectionName = values.collectionSelection;
     }
 
-    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { // Fallback por si acaso
+    if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { 
         finalCollectionName = DEFAULT_COLLECTION_NAME;
     }
 
@@ -189,7 +187,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         name: values.name,
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
-        isFavorite: existingOutfit?.isFavorite || false, // Conservar estado de favorito al editar
+        isFavorite: existingOutfit?.isFavorite || false, 
         description: existingOutfit?.description || "",
         updatedAt: serverTimestamp(),
     };
@@ -223,7 +221,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   }
 
   return (
-    <FormProvider {...form}> {/* Changed from <Form> to <FormProvider> */}
+    <FormProvider {...form}> 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow overflow-hidden">
         <FormField
           control={form.control}
@@ -313,68 +311,70 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         <FormField
             control={form.control}
             name="itemIds"
-            render={() => ( // field no se usa directamente aquí si manejamos el valor con form.setValue
-                <FormItem className="flex-grow flex flex-col overflow-hidden"> {/* This is the parent of ScrollArea */}
+            render={() => ( 
+                <FormItem className="flex-grow flex flex-col overflow-hidden">
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
-                     <FormMessage className="pb-1"/> {/* Para mostrar el error "Debes seleccionar al menos una prenda." */}
-                    <ScrollArea className="flex-grow border rounded-md p-1 min-h-0"> {/* ScrollArea now uses flex-grow */}
-                    <Accordion
-                        type="multiple"
-                        className="w-full"
-                        value={openAccordions}
-                        onValueChange={setOpenAccordions}
-                    >
-                        {filteredAndGroupedItems.map(category => (
-                        <AccordionItem value={category.name} key={category.name}>
-                            <AccordionTrigger className="px-3 py-2 hover:bg-muted/50 rounded-md">
-                            {category.name} ({category.items.length} prenda(s))
-                            </AccordionTrigger>
-                            <AccordionContent className="px-1 pt-1 pb-2">
-                            {category.items.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
-                                {category.items.map(item => {
-                                    const checkboxId = `checkbox-outfit-item-${item.id}`;
-                                    return (
-                                    <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
-                                        <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10 cursor-pointer">
-                                        <Checkbox
-                                            id={checkboxId}
-                                            checked={currentItemIds.includes(item.id)}
-                                            onCheckedChange={() => handleItemSelect(item.id)}
-                                            className="h-5 w-5"
-                                            aria-labelledby={`item-label-${item.id}`}
-                                        />
-                                        </label>
-                                        <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
-                                        <Image
-                                            src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
-                                            alt={item.name}
-                                            layout="fill"
-                                            objectFit="cover"
-                                            data-ai-hint="clothing item"
-                                        />
-                                        </label>
-                                        <label htmlFor={checkboxId} id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium cursor-pointer">
-                                        {item.name}
-                                        </label>
-                                    </div>
-                                    );
-                                })}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground p-4 text-center">No hay prendas en esta categoría {searchTerm && "que coincidan con tu búsqueda"}.</p>
-                            )}
-                            </AccordionContent>
-                        </AccordionItem>
-                        ))}
-                        {wardrobeItems.length > 0 && filteredAndGroupedItems.length === 0 && searchTerm && (
-                            <p className="text-sm text-muted-foreground p-4 text-center">No se encontraron prendas que coincidan con &quot;{searchTerm}&quot;.</p>
-                        )}
-                        {wardrobeItems.length === 0 && (
-                            <p className="text-sm text-muted-foreground p-4 text-center">Tu guardarropa está vacío. Añade prendas para poder crear atuendos.</p>
-                        )}
-                    </Accordion>
-                    </ScrollArea>
+                     <FormMessage className="pb-1"/>
+                    <div className="flex-grow min-h-0 overflow-hidden"> {/* Contenedor para ScrollArea */}
+                        <ScrollArea className="h-full border rounded-md p-1"> {/* ScrollArea ahora usa h-full */}
+                            <Accordion
+                                type="multiple"
+                                className="w-full"
+                                value={openAccordions}
+                                onValueChange={setOpenAccordions}
+                            >
+                                {filteredAndGroupedItems.map(category => (
+                                <AccordionItem value={category.name} key={category.name}>
+                                    <AccordionTrigger className="px-3 py-2 hover:bg-muted/50 rounded-md">
+                                    {category.name} ({category.items.length} prenda(s))
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-1 pt-1 pb-2">
+                                    {category.items.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2">
+                                        {category.items.map(item => {
+                                            const checkboxId = `checkbox-outfit-item-${item.id}`;
+                                            return (
+                                            <div key={item.id} className="relative p-2 border rounded-md hover:shadow-md flex flex-col items-center gap-2 bg-background hover:bg-card transition-all">
+                                                <label htmlFor={checkboxId} className="absolute top-2 right-2 z-10 cursor-pointer">
+                                                <Checkbox
+                                                    id={checkboxId}
+                                                    checked={currentItemIds.includes(item.id)}
+                                                    onCheckedChange={() => handleItemSelect(item.id)}
+                                                    className="h-5 w-5"
+                                                    aria-labelledby={`item-label-${item.id}`}
+                                                />
+                                                </label>
+                                                <label htmlFor={checkboxId} className="w-full aspect-[3/4] relative rounded overflow-hidden cursor-pointer block">
+                                                <Image
+                                                    src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
+                                                    alt={item.name}
+                                                    layout="fill"
+                                                    objectFit="cover"
+                                                    data-ai-hint="clothing item"
+                                                />
+                                                </label>
+                                                <label htmlFor={checkboxId} id={`item-label-${item.id}`} className="text-xs text-center truncate w-full font-medium cursor-pointer">
+                                                {item.name}
+                                                </label>
+                                            </div>
+                                            );
+                                        })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground p-4 text-center">No hay prendas en esta categoría {searchTerm && "que coincidan con tu búsqueda"}.</p>
+                                    )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                                ))}
+                                {wardrobeItems.length > 0 && filteredAndGroupedItems.length === 0 && searchTerm && (
+                                    <p className="text-sm text-muted-foreground p-4 text-center">No se encontraron prendas que coincidan con &quot;{searchTerm}&quot;.</p>
+                                )}
+                                {wardrobeItems.length === 0 && (
+                                    <p className="text-sm text-muted-foreground p-4 text-center">Tu guardarropa está vacío. Añade prendas para poder crear atuendos.</p>
+                                )}
+                            </Accordion>
+                        </ScrollArea>
+                    </div>
                 </FormItem>
             )}
         />
@@ -394,3 +394,5 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
+
+    
