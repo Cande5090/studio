@@ -37,8 +37,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#4A3B2A] p-4 sm:p-6 lg:p-8 font-sans"> {/* Fondo marrón oscuro para toda la pantalla con padding */}
-      <div className="bg-background p-6 sm:p-8 md:p-10 rounded-2xl text-foreground h-full flex flex-col"> {/* Contenedor beige claro con bordes redondeados, ocupando el espacio con padding */}
+    <div className="min-h-screen bg-[#4A3B2A] p-4 sm:p-6 lg:p-8 font-sans flex flex-col"> {/* Contenedor marrón principal con flex-col */}
+      <div className="bg-background p-6 sm:p-8 md:p-10 rounded-2xl text-foreground shadow-xl flex flex-col flex-grow"> {/* Contenedor beige con flex-grow */}
         {/* Header */}
         <header className="mx-auto w-full">
           <div className="flex justify-end items-center">
@@ -56,7 +56,7 @@ export default function HomePage() {
               <Button 
                 variant="default"
                 asChild 
-                className="text-sm sm:text-base"
+                className="text-sm sm:text-base" // bg-primary text-primary-foreground son los default
               >
                 <Link href="/register">
                   <UserPlus className="mr-2 h-4 w-4" />
