@@ -70,7 +70,7 @@ export default function HomePage() {
         {/* Main Content - Centered Design */}
         <main className="flex-grow flex flex-col items-center justify-center text-center py-16 md:py-24">
           <p 
-            className="text-2xl md:text-3xl text-foreground mb-3 md:mb-4 tracking-wide" 
+            className="text-3xl md:text-4xl text-foreground mb-3 md:mb-4 tracking-wide" 
             style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
           >
             Menos dudas frente al espejo
@@ -86,7 +86,7 @@ export default function HomePage() {
             <hr className="flex-grow h-px bg-foreground" />
           </div>
           <p 
-            className="text-2xl md:text-3xl text-foreground mt-3 md:mt-4 tracking-wide" 
+            className="text-3xl md:text-4xl text-foreground mt-3 md:mt-4 tracking-wide" 
             style={{ fontFamily: 'Wilkysta, Georgia, serif' }}
           >
             Todo en un solo lugar
