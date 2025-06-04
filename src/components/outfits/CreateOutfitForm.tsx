@@ -63,7 +63,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<string[]>(clothingCategoriesForForm);
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]); // Cambiado para empezar cerrado
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -393,3 +393,5 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
+
+    
