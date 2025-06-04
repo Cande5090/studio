@@ -61,8 +61,9 @@ export function SelectItemsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 flex-grow flex flex-col overflow-hidden">
-          <div className="mb-4">
+        {/* Contenedor principal para el input y la ScrollArea */}
+        <div className="py-4 flex flex-col flex-grow min-h-0"> {/* Añadido min-h-0 aquí */}
+          <div className="mb-4"> {/* Contenedor del Input de búsqueda */}
             <Label htmlFor="search-items-dialog" className="sr-only">Buscar en {categoryName}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -77,7 +78,7 @@ export function SelectItemsDialog({
           </div>
 
           {itemsInCategory.length > 0 ? (
-            <ScrollArea className="flex-grow border rounded-md min-h-0">
+            <ScrollArea className="flex-grow border rounded-md min-h-0"> {/* ScrollArea debe crecer */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3">
                 {itemsInCategory.map((item) => {
                   const checkboxId = `checkbox-dialog-item-${item.id}`;
@@ -113,7 +114,7 @@ export function SelectItemsDialog({
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-grow flex items-center justify-center text-muted-foreground border rounded-md">
+            <div className="flex-grow flex items-center justify-center text-muted-foreground border rounded-md min-h-0"> {/* Este también debe crecer si se muestra */}
               <p>
                 {searchTerm
                   ? `No hay prendas en "${categoryName}" que coincidan con tu búsqueda.`
@@ -123,7 +124,7 @@ export function SelectItemsDialog({
           )}
         </div>
 
-        <DialogFooter className="mt-auto pt-4 border-t">
+        <DialogFooter className="mt-auto pt-4 border-t"> {/* mt-auto para empujarlo hacia abajo */}
           <DialogClose asChild>
             <Button type="button">Hecho</Button>
           </DialogClose>
