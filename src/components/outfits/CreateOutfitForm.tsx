@@ -63,7 +63,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<string[]>([]); // Cambiado para empezar cerrado
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]); 
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -313,10 +313,10 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             control={form.control}
             name="itemIds"
             render={() => ( // field no se usa directamente aquí si manejamos el valor con form.setValue
-                <FormItem className="flex-grow flex flex-col overflow-hidden">
+                <FormItem className="flex-grow flex flex-col overflow-hidden"> {/* This is the parent of ScrollArea */}
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
                      <FormMessage className="pb-1"/> {/* Para mostrar el error "Debes seleccionar al menos una prenda." */}
-                    <ScrollArea className="flex-grow border rounded-md p-1">
+                    <ScrollArea className="flex-grow border rounded-md p-1 min-h-0"> {/* This is the ScrollArea with min-h-0 */}
                     <Accordion
                         type="multiple"
                         className="w-full"
@@ -393,5 +393,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
+
+    
 
     
