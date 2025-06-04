@@ -29,8 +29,8 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
-import { SelectItemsDialog } from "./SelectItemsDialog"; // Nuevo componente
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { SelectItemsDialog } from "./SelectItemsDialog"; 
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 const DEFAULT_COLLECTION_NAME = "General";
 const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
@@ -300,16 +300,26 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 ))}
               </div>
               {selectedItemsDetails.length > 0 && (
-                <div className="mt-2">
+                <div className="mt-3">
                   <p className="text-xs text-muted-foreground mb-1">Prendas en este atuendo:</p>
-                  <ScrollArea className="h-20 border rounded-md p-1">
-                    <div className="p-1 space-y-1">
-                    {selectedItemsDetails.map(item => (
-                      <div key={item.id} className="text-xs p-1 bg-secondary/50 rounded-sm truncate">
-                        {item.name} <span className="text-muted-foreground">({item.type})</span>
-                      </div>
-                    ))}
+                  <ScrollArea className="h-28 border rounded-md">
+                    <div className="flex space-x-2 p-2">
+                      {selectedItemsDetails.map(item => (
+                        <div key={item.id} className="shrink-0 w-20 flex flex-col items-center">
+                          <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden border">
+                            <Image
+                              src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
+                              alt={item.name}
+                              layout="fill"
+                              objectFit="cover"
+                              data-ai-hint="clothing item"
+                            />
+                          </div>
+                          <p className="text-xs truncate text-center mt-1 w-full" title={item.name}>{item.name}</p>
+                        </div>
+                      ))}
                     </div>
+                    <ScrollBar orientation="horizontal" />
                   </ScrollArea>
                 </div>
               )}
@@ -343,3 +353,4 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
+
