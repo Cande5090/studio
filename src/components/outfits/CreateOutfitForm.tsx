@@ -92,13 +92,13 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       if (existingCollectionNames.includes(currentOutfitCollection) || currentOutfitCollection === DEFAULT_COLLECTION_NAME) {
         form.setValue("collectionSelection", currentOutfitCollection);
         setShowNewCollectionInput(false);
-      } else { // Colección del atuendo no está en la lista (fue nueva o "General" no estaba en la lista por error)
+      } else { 
         form.setValue("collectionSelection", CREATE_NEW_COLLECTION_VALUE);
         form.setValue("newCollectionNameInput", currentOutfitCollection);
         setShowNewCollectionInput(true);
       }
-      setOpenAccordions([]); // Cerrar acordeones por defecto al editar
-    } else { // Modo Añadir
+      setOpenAccordions([]); 
+    } else { 
       form.reset({
         name: "",
         itemIds: [],
@@ -106,7 +106,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         newCollectionNameInput: "",
       });
       setShowNewCollectionInput(false);
-      setOpenAccordions([]); // Cerrar acordeones por defecto al añadir uno nuevo
+      setOpenAccordions([]); 
     }
   }, [existingOutfit, form, existingCollectionNames]);
 
@@ -115,7 +115,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       setShowNewCollectionInput(true);
     } else {
       setShowNewCollectionInput(false);
-      form.setValue("newCollectionNameInput", ""); // Limpiar si se selecciona una existente o "General"
+      form.setValue("newCollectionNameInput", ""); 
     }
   }, [collectionSelectionValue, form]);
 
@@ -222,7 +222,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 
   return (
     <FormProvider {...form}> 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow overflow-hidden">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex flex-col flex-grow">
         <FormField
           control={form.control}
           name="name"
@@ -315,8 +315,8 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 <FormItem className="flex-grow flex flex-col overflow-hidden">
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
                      <FormMessage className="pb-1"/>
-                    <div className="flex-grow min-h-0 overflow-hidden"> {/* Contenedor para ScrollArea */}
-                        <ScrollArea className="h-full border rounded-md p-1"> {/* ScrollArea ahora usa h-full */}
+                    <div className="flex-grow min-h-0 overflow-hidden">
+                        <ScrollArea className="h-full border rounded-md p-1">
                             <Accordion
                                 type="multiple"
                                 className="w-full"
