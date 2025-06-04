@@ -5,8 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, FormProvider } from "react-hook-form";
 import * as z from "zod";
 import { useState, useEffect, useMemo } from "react";
-import Image from "next/image";
-import { Eye, Loader2, Search, PlusCircle, ChevronRight } from "lucide-react";
+import { Eye, Loader2, Search, PlusCircle, ChevronRight, Shirt } from "lucide-react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -29,8 +28,8 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { ClothingItem, OutfitWithItems } from "@/types";
-import { SelectItemsDialog } from "./SelectItemsDialog"; 
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { SelectItemsDialog } from "./SelectItemsDialog";
+import { PreviewOutfitDialog } from "./PreviewOutfitDialog"; // Nuevo diálogo
 
 const DEFAULT_COLLECTION_NAME = "General";
 const CREATE_NEW_COLLECTION_VALUE = "__CREATE_NEW__";
@@ -59,6 +58,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 
   const [isSelectItemsDialogOpen, setIsSelectItemsDialogOpen] = useState(false);
   const [categoryForSelection, setCategoryForSelection] = useState<string | null>(null);
+  const [isPreviewOutfitDialogOpen, setIsPreviewOutfitDialogOpen] = useState(false);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -73,6 +73,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
 
   const currentItemIds = form.watch("itemIds");
   const collectionSelectionValue = form.watch("collectionSelection");
+  const outfitNameValue = form.watch("name");
 
   useEffect(() => {
     if (existingOutfit) {
@@ -167,7 +168,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
         isFavorite: existingOutfit?.isFavorite || false,
-        description: existingOutfit?.description || "",
+        description: existingOutfit?.description || "", // Puedes añadir un campo de descripción si quieres
         updatedAt: serverTimestamp(),
     };
 
@@ -277,8 +278,8 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
           control={form.control}
           name="itemIds"
           render={() => (
-            <FormItem className="flex-grow flex flex-col"> {/* MODIFICADO: overflow-hidden quitado */}
-              <FormLabel>Prendas Seleccionadas ({currentItemIds.length})</FormLabel>
+            <FormItem className="flex-grow flex flex-col">
+              <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
               <FormMessage className="pb-1"/>
               <div className="space-y-2 border rounded-md p-2 bg-muted/20 mb-3">
                 {clothingCategoriesForForm.map(category => (
@@ -299,31 +300,6 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                   </Button>
                 ))}
               </div>
-              
-              {selectedItemsDetails.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-xs text-muted-foreground mb-1">Prendas en este atuendo:</p>
-                  <ScrollArea className="h-28 border rounded-md">
-                    <div className="flex space-x-2 p-2">
-                      {selectedItemsDetails.map(item => (
-                        <div key={item.id} className="shrink-0 w-20 flex flex-col items-center">
-                          <div className="relative w-full aspect-[3/4] rounded-md overflow-hidden border">
-                            <Image
-                              src={item.imageUrl || "https://placehold.co/150x200.png?text=Prenda"}
-                              alt={item.name}
-                              layout="fill"
-                              objectFit="cover"
-                              data-ai-hint="clothing item"
-                            />
-                          </div>
-                          <p className="text-xs truncate text-center mt-1 w-full" title={item.name}>{item.name}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <ScrollBar orientation="horizontal" />
-                  </ScrollArea>
-                </div>
-              )}
             </FormItem>
           )}
         />
@@ -338,11 +314,31 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
             onItemToggle={handleItemSelectToggle}
           />
         )}
+        
+        {selectedItemsDetails.length > 0 && isPreviewOutfitDialogOpen && (
+          <PreviewOutfitDialog
+            open={isPreviewOutfitDialogOpen}
+            onOpenChange={setIsPreviewOutfitDialogOpen}
+            selectedItems={selectedItemsDetails}
+            outfitName={outfitNameValue}
+          />
+        )}
+
 
         <div className="mt-auto pt-4 space-y-3 border-t">
            <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSaving}>
               Cancelar
+            </Button>
+            <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setIsPreviewOutfitDialogOpen(true)} 
+                disabled={isSaving || selectedItemsDetails.length === 0}
+                className="border border-input"
+            >
+                <Shirt className="mr-2 h-4 w-4" />
+                Previsualizar Atuendo
             </Button>
             <Button type="submit" disabled={isSaving || (form.formState.isSubmitted && !form.formState.isValid && !form.formState.isDirty) }>
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Eye className="mr-2 h-4 w-4" />}
@@ -355,3 +351,4 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   );
 }
 
+    
