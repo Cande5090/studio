@@ -76,14 +76,14 @@ export default function HomePage() {
             Menos dudas frente al espejo
           </p>
           <div className="flex items-center justify-center w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-2xl my-4 md:my-6">
-            <hr className="flex-grow border-t border-foreground/60" />
+            <hr className="flex-grow border-t border-foreground" />
             <h1
               className="text-7xl xs:text-8xl sm:text-9xl md:text-[10rem] lg:text-[11rem] font-bold text-foreground mx-4 sm:mx-6 md:mx-8 whitespace-nowrap tracking-wider"
               style={{ fontFamily: 'Fashion Wacks, Georgia, serif' }}
             >
               Outfitly
             </h1>
-            <hr className="flex-grow border-t border-foreground/60" />
+            <hr className="flex-grow border-t border-foreground" />
           </div>
           <p 
             className="text-2xl md:text-3xl text-foreground mt-3 md:mt-4 tracking-wide" 
