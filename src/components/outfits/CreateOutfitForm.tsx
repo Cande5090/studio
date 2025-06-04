@@ -63,7 +63,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [openAccordions, setOpenAccordions] = useState<string[]>([]); 
+  const [openAccordions, setOpenAccordions] = useState<string[]>([]);
   const [showNewCollectionInput, setShowNewCollectionInput] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -105,6 +105,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         newCollectionNameInput: "",
       });
       setShowNewCollectionInput(false);
+      setOpenAccordions([]); // Cerrar acordeones por defecto al añadir uno nuevo
     }
   }, [existingOutfit, form, existingCollectionNames]);
 
@@ -147,7 +148,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
       : [...currentSelectedIds, itemId];
     form.setValue("itemIds", newSelectedIds, { shouldValidate: true, shouldDirty: true });
   };
-  
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -177,9 +178,9 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     } else if (values.collectionSelection) {
       finalCollectionName = values.collectionSelection;
     }
-    
+
     if (finalCollectionName === CREATE_NEW_COLLECTION_VALUE) { // Fallback por si acaso
-        finalCollectionName = DEFAULT_COLLECTION_NAME; 
+        finalCollectionName = DEFAULT_COLLECTION_NAME;
     }
 
     setIsSaving(true);
@@ -189,7 +190,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
         itemIds: values.itemIds,
         collectionName: finalCollectionName,
         isFavorite: existingOutfit?.isFavorite || false, // Conservar estado de favorito al editar
-        description: existingOutfit?.description || "", 
+        description: existingOutfit?.description || "",
         updatedAt: serverTimestamp(),
     };
 
@@ -316,7 +317,7 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
                 <FormItem className="flex-grow flex flex-col overflow-hidden"> {/* This is the parent of ScrollArea */}
                     <FormLabel>Seleccionar Prendas ({currentItemIds.length})</FormLabel>
                      <FormMessage className="pb-1"/> {/* Para mostrar el error "Debes seleccionar al menos una prenda." */}
-                    <ScrollArea className="flex-grow border rounded-md p-1 min-h-0"> {/* This is the ScrollArea with min-h-0 */}
+                    <ScrollArea className="h-full border rounded-md p-1 min-h-0"> {/* This is the ScrollArea with h-full and min-h-0, flex-grow removed */}
                     <Accordion
                         type="multiple"
                         className="w-full"
@@ -393,7 +394,3 @@ export function CreateOutfitForm({ setOpen, wardrobeItems, onOutfitSaved, existi
     </FormProvider>
   );
 }
-
-    
-
-    
